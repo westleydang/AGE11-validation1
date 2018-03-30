@@ -1,0 +1,51 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+# Load libraries
+library(ggplot2)
+library(reshape2)
+library(plyr)
+
+
+# Load the data
+rawkk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", header=TRUE, sep=",")
+rawkk$idBysubroi = as.factor(rawkk$idBysubroi)
+
+# Merge animal details
+animal_details = read.csv("animal_details.csv")
+animal_details$Mouse.ID. = as.factor(animal_details$ID)
+colnames(animal_details)[9] = "idBysubroi"
+rawkk = merge(animal_details, rawkk, by = "idBysubroi")
+
+attach(rawkk)
+
+
+```
+
+```{r}
+
+# How does the count vary with area?
+ggplot(rawkk) +
+  aes(x = )
+
+# What is the mean count per brain, normalized to area?
+ggplot(rawkk) +
+  aes(factor(GROUP), Ch2mm2, fill=EXPT) + 
+  geom_bar(stat="identity", position="dodge") 
+
+ggplot(rawkk, aes(GROUP, Ch2mm2)) + geom_bar(stat="identity") + facet_wrap(~EXPT)
+ggplot(rawkk, aes(GROUP, Ch3mm2)) + geom_bar(stat="identity") + facet_wrap(~EXPT)
+ggplot(rawkk, aes(GROUP, Ch4mm2)) + geom_bar(stat="identity") + facet_wrap(~EXPT)
+ggplot(rawkk, aes(GROUP, OLmm2)) + geom_col() + facet_wrap(~EXPT)
+
+ggplot(rawkk) +
+  aes(x = GROUP, y = OLmm2) +
+  geom_bar(stat="identity") +
+  facet_wrap(~SUBROI)
+
+```
