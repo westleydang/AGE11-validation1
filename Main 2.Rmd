@@ -29,23 +29,22 @@ attach(rawkk)
 
 ```{r}
 
-# How does the count vary with area?
-ggplot(rawkk) +
-  aes(x = )
 
 # What is the mean count per brain, normalized to area?
-ggplot(rawkk) +
-  aes(factor(GROUP), Ch2mm2, fill=EXPT) + 
-  geom_bar(stat="identity", position="dodge") 
+channels.all = names(rawkk[13:17])
 
-ggplot(rawkk, aes(GROUP, Ch2mm2)) + geom_bar(stat="identity") + facet_wrap(~EXPT)
-ggplot(rawkk, aes(GROUP, Ch3mm2)) + geom_bar(stat="identity") + facet_wrap(~EXPT)
-ggplot(rawkk, aes(GROUP, Ch4mm2)) + geom_bar(stat="identity") + facet_wrap(~EXPT)
-ggplot(rawkk, aes(GROUP, OLmm2)) + geom_col() + facet_wrap(~EXPT)
+for (i in channels.all) {
+  print (
+    ggplot(rawkk) +
+      aes(factor(SUBROI), rawkk[i], fill=EXPT) + 
+      geom_bar(stat="identity", position="dodge") +
+      coord_flip() + ggtitle(i)
+  )
+}
 
-ggplot(rawkk) +
-  aes(x = GROUP, y = OLmm2) +
-  geom_bar(stat="identity") +
-  facet_wrap(~SUBROI)
+for (i in channels.all) {
+  print(i)
+}
+
 
 ```
