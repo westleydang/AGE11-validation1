@@ -1,6 +1,8 @@
 ---
 title: "R Notebook"
-output: html_notebook
+output:
+  html_notebook: default
+  html_document: default
 ---
 
 
@@ -9,7 +11,8 @@ output: html_notebook
 # Load libraries
 library(ggplot2)
 library(reshape2)
-library(plyr)
+library(dplyr)
+library(plotrix)
 
 
 # Load the data
@@ -27,24 +30,86 @@ attach(rawkk)
 
 ```
 
+
+# Normalized densities per age group
 ```{r}
 
+rawkk$OLmm2.norm = rawkk$OLmm2
+rawkk$OLmm2.norm = rawkk$OLmm2/(rawkk$Ch2mm2 + rawkk$Ch4mm2 - rawkk$OLmm2)
 
 # What is the mean count per brain, normalized to area?
-channels.all = names(rawkk[13:17])
+channels.all = names(rawkk[13:18])
 
+# for (i in channels.all) {
+#   print (
+#     ggplot(rawkk) +
+#       aes(factor(GROUP), rawkk[i], fill=EXPT) +
+#       geom_bar(stat="identity", position="dodge") +
+#       coord_flip() + ggtitle(i)
+#   )
+# }
+
+
+# Get SEM
+
+age10.se = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), std.error)
+age11.se = aggregate(filter(rawkk[,13:18], EXPT=="AGE 11"), list(rawkk$GROUP[rawkk$EXPT=="AGE 11"]), std.error)
+head(age10.se)
+head(age11.se)
+
+age10.mean = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), mean)
+age11.mean = aggregate(filter(rawkk[,13:18], EXPT=="AGE 11"), list(rawkk$GROUP[rawkk$EXPT=="AGE 11"]), mean)
+head(age10.mean)
+head(age11.mean)
+
+
+
+# # Why is this different? I think this is count not the mean
+ggplot(rawkk) +
+  aes(x = GROUP, y = Ch1mm2, fill=EXPT) +
+  coord_flip() + geom_bar(stat="identity", position="dodge")
+
+```
+
+# Compare old/young for each group
+- Question: What the fuck is going on with the differences here? Mean and SEM are in the table in previous section. 
+```{r}
+# How to use stat summmary to ggplot error bars
+for (i in channels.all) {
+  print (
+    ggplot(rawkk) + 
+      aes(x = GROUP, y = rawkk[i], fill=EXPT) +
+      coord_flip() + 
+      stat_summary(fun.y = mean, 
+                   position="dodge",
+                   geom="bar") +
+      stat_summary(fun.data = mean_se, 
+                   size=2,
+                   position = "dodge",
+                   geom="linerange") +
+      ggtitle(i)
+  )
+}
+```
+
+
+
+# Look means at each SUBROI
+```{r, fig.width=5,fig.height=8}
 for (i in channels.all) {
   print (
     ggplot(rawkk) +
       aes(factor(SUBROI), rawkk[i], fill=EXPT) + 
-      geom_bar(stat="identity", position="dodge") +
-      coord_flip() + ggtitle(i)
+      stat_summary(fun.y = mean, 
+                   position="dodge",
+                   geom="bar") +
+      stat_summary(fun.data = mean_se, 
+                   size=.2,
+                   position="dodge",
+                   geom="linerange") +
+      ggtitle(i) + coord_flip() 
   )
 }
 
-for (i in channels.all) {
-  print(i)
-}
-
-
 ```
+
