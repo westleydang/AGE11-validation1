@@ -24,3 +24,6 @@ raw$fileseq = as.numeric(raw$fileseq)
 raw$Z.Level. = (raw$fileseq %% 3) + 1
 raw$Z.Level. = as.factor(raw$Z.Level.)
 
+
+
+

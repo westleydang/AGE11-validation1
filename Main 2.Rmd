@@ -3,9 +3,26 @@ title: "R Notebook"
 output:
   html_notebook: default
   html_document: default
+  pdf_document: default
 ---
 
+# Group Legends
+- SAB - shock AB
+- SAA - shock AA
+- CAB - context AB
+- CAA - context AA
 
+# Channel Legend
+- Ch 1 = DAPI (stained)
+- Ch 2 = GFP (experience 1)
+- Ch 3 = GFAP (stained)
+- Ch 4 = ARC (experience 2; stained)
+- OL = overlap GFP/Arc
+- OL.norm = overlap normalized to GFP/Arc
+
+# EXPT legends
+- AGE 10 = young mice
+- AGE 11 = old mice
 
 ```{r}
 # Load libraries
@@ -40,36 +57,35 @@ rawkk$OLmm2.norm = rawkk$OLmm2/(rawkk$Ch2mm2 + rawkk$Ch4mm2 - rawkk$OLmm2)
 # What is the mean count per brain, normalized to area?
 channels.all = names(rawkk[13:18])
 
-# for (i in channels.all) {
-#   print (
-#     ggplot(rawkk) +
-#       aes(factor(GROUP), rawkk[i], fill=EXPT) +
-#       geom_bar(stat="identity", position="dodge") +
-#       coord_flip() + ggtitle(i)
-#   )
-# }
 
+```
 
-# Get SEM
-
-age10.se = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), std.error)
-age11.se = aggregate(filter(rawkk[,13:18], EXPT=="AGE 11"), list(rawkk$GROUP[rawkk$EXPT=="AGE 11"]), std.error)
-head(age10.se)
-head(age11.se)
-
+# Table of mean and SEM of densities per group
+```{r}
+# Get mean
 age10.mean = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), mean)
 age11.mean = aggregate(filter(rawkk[,13:18], EXPT=="AGE 11"), list(rawkk$GROUP[rawkk$EXPT=="AGE 11"]), mean)
 head(age10.mean)
 head(age11.mean)
 
+# Get SEM
+age10.se = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), std.error)
+age11.se = aggregate(filter(rawkk[,13:18], EXPT=="AGE 11"), list(rawkk$GROUP[rawkk$EXPT=="AGE 11"]), std.error)
+head(age10.se)
+head(age11.se)
 
+# # Check n
+# age10.count = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), count)
+# head(age10.count)
+# 
+# # Check variance
+# age10.var = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), var)
+# head(age10.var)
 
-# # Why is this different? I think this is count not the mean
-ggplot(rawkk) +
-  aes(x = GROUP, y = Ch1mm2, fill=EXPT) +
-  coord_flip() + geom_bar(stat="identity", position="dodge")
 
 ```
+
+
 
 # Compare old/young for each group
 - Question: What the fuck is going on with the differences here? Mean and SEM are in the table in previous section. 
@@ -95,7 +111,7 @@ for (i in channels.all) {
 
 
 # Look means at each SUBROI
-```{r, fig.width=5,fig.height=8}
+```{r, fig.width=4,fig.height=7}
 for (i in channels.all) {
   print (
     ggplot(rawkk) +
@@ -104,7 +120,7 @@ for (i in channels.all) {
                    position="dodge",
                    geom="bar") +
       stat_summary(fun.data = mean_se, 
-                   size=.2,
+                   size=.5,
                    position="dodge",
                    geom="linerange") +
       ggtitle(i) + coord_flip() 
