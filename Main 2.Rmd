@@ -35,6 +35,7 @@ library(plotrix)
 # Load the data
 rawkk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", header=TRUE, sep=",")
 rawkk$idBysubroi = as.factor(rawkk$idBysubroi)
+colnames(rawkk)[2] = "GROUP"
 
 # Merge animal details
 animal_details = read.csv("animal_details.csv")
@@ -63,6 +64,9 @@ channels.all = names(rawkk[13:18])
 # Table of mean and SEM of densities per group
 ```{r}
 # Get mean
+young = filter(rawkk, EXPT=="AGE 10")
+old = filter(rawkk, EXPT=="AGE 11")
+
 age10.mean = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), mean)
 age11.mean = aggregate(filter(rawkk[,13:18], EXPT=="AGE 11"), list(rawkk$GROUP[rawkk$EXPT=="AGE 11"]), mean)
 head(age10.mean)
@@ -131,22 +135,69 @@ for (i in channels.all) {
 
 
 # Now let's separate them by ROIs
-I'm not sure whether these error bars are correct... Are the SEMs factored out or not? How can these error bars be so small?
+- I'm not sure whether these error bars are correct... Are the SEMs factored out or not? How can these error bars be so small?
 ```{r}
 
 # Make list of interesting ROIs
 interesting.ROI = c("AcB", "CA1", "CA3", "CeA", "DG", "ENT","PAG", "PrL", "RSCla", "LA", "LAT")
+ROI.acb = "AcB"
 
 # Make pointrange graphs 
-
-ggplot(rawkk[rawkk$SUBROI %in% interesting.ROI,]) +
-  aes(GROUP, OLmm2.norm, fill=EXPT, shape=EXPT, color=EXPT) +
+ggplot(rawkk[rawkk$SUBROI %in% ROI.acb,]) +
+  aes(GROUP, OLmm2, fill=EXPT, shape=EXPT, color=EXPT) +
   stat_summary(fun.y = mean, 
                geom="point") +
   stat_summary(fun.data=mean_se, 
                geom="pointrange") +
-  facet_wrap(~SUBROI) +geom_point(color="black")
+  facet_wrap(~SUBROI)
+
+# # check the SEM for the factored graph
+# young.acb = filter(rawkk, EXPT=="AGE 10" & SUBROI=="AcB")
+# young.acb.se = aggregate(young.acb[,13:18], list(young.acb$GROUP), std.error)
+# head(young.acb.se)
+
+# let's check if we can summarize the table by dplyr
+rawkk[rawkk$SUBROI=="AcB",] %>% group_by(GROUP, EXPT) %>% summarize_if(is.numeric, mean)
+rawkk[rawkk$SUBROI=="AcB",] %>% group_by(GROUP, EXPT) %>% summarize_if(is.numeric, std.error)
+
+
+```
+
+
+
+
+# For loop for each ROI
+- Make a graph and the data table separately
+
+```{r}
+
+for (roi in interesting.ROI) {
+  # Make pointrange graphs 
+  print(
+    ggplot(rawkk[rawkk$SUBROI %in% list(roi),]) +
+    aes(GROUP, OLmm2, fill=EXPT, shape=EXPT, color=EXPT) +
+    stat_summary(fun.y = mean, 
+                 geom="point") +
+    stat_summary(fun.data=mean_se, 
+                 geom="pointrange") +
+    facet_wrap(~SUBROI)
+  )
+  
+  # let's check if we can summarize the table by dplyr
+  print(
+    rawkk[rawkk$SUBROI==roi,] %>% 
+      group_by(GROUP, EXPT) %>%
+      summarize_if(is.numeric, mean)
+  )
+  print(
+    rawkk[rawkk$SUBROI==roi,] %>% 
+      group_by(GROUP, EXPT) %>% 
+      summarize_if(is.numeric, std.error)
+  )
+}
 
 
 
 ```
+
+
