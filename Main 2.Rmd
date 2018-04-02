@@ -171,30 +171,38 @@ rawkk[rawkk$SUBROI=="AcB",] %>% group_by(GROUP, EXPT) %>% summarize_if(is.numeri
 
 ```{r}
 
-for (roi in interesting.ROI) {
-  # Make pointrange graphs 
-  print(
-    ggplot(rawkk[rawkk$SUBROI %in% list(roi),]) +
-    aes(GROUP, OLmm2, fill=EXPT, shape=EXPT, color=EXPT) +
-    stat_summary(fun.y = mean, 
-                 geom="point") +
-    stat_summary(fun.data=mean_se, 
-                 geom="pointrange") +
-    facet_wrap(~SUBROI)
-  )
+for (k in channels.all) {
   
-  # let's check if we can summarize the table by dplyr
-  print(
-    rawkk[rawkk$SUBROI==roi,] %>% 
-      group_by(GROUP, EXPT) %>%
-      summarize_if(is.numeric, mean)
-  )
-  print(
-    rawkk[rawkk$SUBROI==roi,] %>% 
-      group_by(GROUP, EXPT) %>% 
-      summarize_if(is.numeric, std.error)
-  )
+  for (roi in interesting.ROI) {
+    
+    df = rawkk[rawkk$SUBROI %in% list(roi),]
+    
+    # Make pointrange graphs 
+    print(
+      ggplot(df) +
+      aes(x=GROUP, y=df[,k], fill=EXPT, shape=EXPT, color=EXPT) +
+      stat_summary(fun.y = mean, 
+                   geom="point") +
+      stat_summary(fun.data=mean_se, 
+                   geom="pointrange") +
+      facet_wrap(~SUBROI) + 
+        labs(y = as.character(k))
+    )
+  #   
+  #   # let's check if we can summarize the table by dplyr
+  #   print(
+  #     rawkk[rawkk$SUBROI==roi,] %>% 
+  #       group_by(GROUP, EXPT) %>%
+  #       summarize_if(is.numeric, mean)
+  #   )
+  #   print(
+  #     rawkk[rawkk$SUBROI==roi,] %>% 
+  #       group_by(GROUP, EXPT) %>% 
+  #       summarize_if(is.numeric, std.error)
+  #   )
+  }
 }
+
 
 
 
