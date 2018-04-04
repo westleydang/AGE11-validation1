@@ -50,6 +50,7 @@ attach(rawkk)
 
 
 # Normalized densities per age group
+- 
 ```{r}
 
 rawkk$OLmm2.norm = rawkk$OLmm2
@@ -57,6 +58,15 @@ rawkk$OLmm2.norm = rawkk$OLmm2/(rawkk$Ch2mm2 + rawkk$Ch4mm2 - rawkk$OLmm2)
 
 # What is the mean count per brain, normalized to area?
 channels.all = names(rawkk[13:18])
+
+
+# Transform rawkk to a long format
+rawkk_long = melt(rawkk, id.vars=names(rawkk[1:11]), variable.name = "CHANNEL", value.name="DENSITY")
+
+ggplot(rawkk_long) + aes(GROUP, DENSITY, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free", ncol=4) +
+  stat_summary(fun.y = mean, geom="point") +
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("Comparing densities per channel ~ group/age")
 
 
 ```
@@ -93,18 +103,20 @@ channels.all = names(rawkk[13:18])
 
 # Compare old/young for each group
 - Question: What the fuck is going on with the differences here? Mean and SEM are in the table in previous section. 
+- Assuming that DAPI should be the same across groups, do they match across groups and experiments? 
 ```{r}
 # How to use stat summmary to ggplot error bars
 for (i in channels.all) {
   print (
     ggplot(rawkk) + 
-      aes(x = GROUP, y = rawkk[i], fill=EXPT) +
+      aes(x = GROUP, y = rawkk[i], fill=EXPT, color=EXPT) +
       coord_flip() + 
       stat_summary(fun.y = mean, 
                    position="dodge",
-                   geom="bar") +
+                   size=5, 
+                   geom="point") +
       stat_summary(fun.data = mean_se, 
-                   size=2,
+                   size=.5,
                    position = "dodge",
                    geom="linerange") +
       ggtitle(i)
