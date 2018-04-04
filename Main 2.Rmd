@@ -64,19 +64,19 @@ channels.all = names(rawkk[13:18])
 # Table of mean and SEM of densities per group
 ```{r}
 # Get mean
-young = filter(rawkk, EXPT=="AGE 10")
-old = filter(rawkk, EXPT=="AGE 11")
-
-age10.mean = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), mean)
-age11.mean = aggregate(filter(rawkk[,13:18], EXPT=="AGE 11"), list(rawkk$GROUP[rawkk$EXPT=="AGE 11"]), mean)
-head(age10.mean)
-head(age11.mean)
-
-# Get SEM
-age10.se = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), std.error)
-age11.se = aggregate(filter(rawkk[,13:18], EXPT=="AGE 11"), list(rawkk$GROUP[rawkk$EXPT=="AGE 11"]), std.error)
-head(age10.se)
-head(age11.se)
+# young = filter(rawkk, EXPT=="AGE 10")
+# old = filter(rawkk, EXPT=="AGE 11")
+# 
+# age10.mean = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), mean)
+# age11.mean = aggregate(filter(rawkk[,13:18], EXPT=="AGE 11"), list(rawkk$GROUP[rawkk$EXPT=="AGE 11"]), mean)
+# head(age10.mean)
+# head(age11.mean)
+# 
+# # Get SEM
+# age10.se = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), std.error)
+# age11.se = aggregate(filter(rawkk[,13:18], EXPT=="AGE 11"), list(rawkk$GROUP[rawkk$EXPT=="AGE 11"]), std.error)
+# head(age10.se)
+# head(age11.se)
 
 # # Check n
 # age10.count = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), count)
@@ -186,8 +186,12 @@ for (k in channels.all) {
       stat_summary(fun.data=mean_se, 
                    geom="pointrange") +
       facet_wrap(~SUBROI) + 
-        labs(y = as.character(k))
+        labs(y = as.character(k)) + 
+        ggtitle(paste0(roi, " for channel ", k))
     )
+    
+    
+    
   #   
   #   # let's check if we can summarize the table by dplyr
   #   print(

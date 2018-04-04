@@ -7,7 +7,9 @@
 #    http://shiny.rstudio.com/
 #
 
-library(shiny)
+library(shiny)  
+
+
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -23,7 +25,7 @@ ui <- fluidPage(
                      factor(channels.all)),
         selectInput("roi",
                     "What roi:",
-                    factor(interesting.ROI))
+                    factor(rawkk$SUBROI))
       ),
       
       # Show a plot of the generated distribution
@@ -41,7 +43,6 @@ server <- function(input, output) {
   library(dplyr)
   library(plotrix)
   
-  
   # Load the data
   rawkk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", header=TRUE, sep=",")
   rawkk$idBysubroi = as.factor(rawkk$idBysubroi)
@@ -52,7 +53,6 @@ server <- function(input, output) {
   animal_details$Mouse.ID. = as.factor(animal_details$ID)
   colnames(animal_details)[9] = "idBysubroi"
   rawkk = merge(animal_details, rawkk, by = "idBysubroi")
-  
   attach(rawkk)
   rawkk$OLmm2.norm = rawkk$OLmm2
   rawkk$OLmm2.norm = rawkk$OLmm2/(rawkk$Ch2mm2 + rawkk$Ch4mm2 - rawkk$OLmm2)
@@ -61,13 +61,9 @@ server <- function(input, output) {
   channels.all = names(rawkk[13:18])
   
   
-  
-  
    
    output$distPlot <- renderPlot({
-
       # draw
-      
       df = rawkk[rawkk$SUBROI==input$roi,]
       ggplot(df) +
         aes(x=GROUP, y=df[, input$ch], fill=EXPT, shape=EXPT, color=EXPT) +
@@ -75,11 +71,7 @@ server <- function(input, output) {
                      geom="point") +
         stat_summary(fun.data=mean_se, 
                      geom="pointrange") +
-        facet_wrap(~EXPT) + 
         labs(y = as.character(input$ch))
-      
-      
-      
    })
 }
 
