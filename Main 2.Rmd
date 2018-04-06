@@ -1,8 +1,8 @@
 ---
 title: "R Notebook"
 output:
-  html_notebook: default
   html_document: default
+  html_notebook: default
   pdf_document: default
 ---
 
@@ -24,152 +24,165 @@ output:
 - AGE 10 = young mice
 - AGE 11 = old mice
 
-```{r}
+
+# Prepare the data
+- loads the libraries
+- loads the data (as kk)
+- merges in the animal details
+- creates a normalized measure of OL counts
+- transforms a long format version of data (kk.long)
+```{r, message=FALSE, warning=FALSE}
 # Load libraries
 library(ggplot2)
 library(reshape2)
 library(dplyr)
 library(plotrix)
+library(GGally)
+
 
 
 # Load the data
-rawkk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", header=TRUE, sep=",")
-rawkk$idBysubroi = as.factor(rawkk$idBysubroi)
-colnames(rawkk)[2] = "GROUP"
+kk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", header=TRUE, sep=",")
+kk$idBysubroi = as.factor(kk$idBysubroi)
+
 
 # Merge animal details
 animal_details = read.csv("animal_details.csv")
 animal_details$Mouse.ID. = as.factor(animal_details$ID)
 colnames(animal_details)[9] = "idBysubroi"
-rawkk = merge(animal_details, rawkk, by = "idBysubroi")
-
-attach(rawkk)
-
-
-```
+kk = merge(animal_details, kk, by = "idBysubroi")
+colnames(kk)[2] = "GROUP"
+attach(kk)
 
 
-# Normalized densities per age group
-- 
-```{r}
-
-rawkk$OLmm2.norm = rawkk$OLmm2
-rawkk$OLmm2.norm = rawkk$OLmm2/(rawkk$Ch2mm2 + rawkk$Ch4mm2 - rawkk$OLmm2)
-
-# What is the mean count per brain, normalized to area?
-channels.all = names(rawkk[13:18])
+# normalize the OL counts
+kk$OLmm2.norm = kk$OLmm2
+kk$OLmm2.norm = kk$OLmm2/(kk$Ch2mm2 + kk$Ch4mm2 - kk$OLmm2)
 
 
 # Transform rawkk to a long format
-rawkk_long = melt(rawkk, id.vars=names(rawkk[1:12]), variable.name = "CHANNEL", value.name="DENSITY")
+kk.long = melt(kk, id.vars=names(kk[1:12]), variable.name = "CHANNEL", value.name="DENSITY")
 
-ggplot(rawkk_long) + aes(GROUP, DENSITY, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
+
+```
+
+
+# Create table of data to find the mean and SEM for for each: roi, group, age
+- Summarize a new table where each obs is an animal with unweighted average density for whole brain 
+- Then plot so that each error bar reflects number of animals 
+```{r}
+
+# 
+# # What is the mean count per brain, normalized to area?
+# channels.all = names(kk[13:18])
+
+kkl.collapseROI = kk.long %>%
+  group_by(CHANNEL, GROUP, EXPT, ID) %>%
+  summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
+            ymin = mean_density-sem, ymax = mean_density+sem)
+kkl.collapseROI
+
+ggplot(kkl.collapseROI) + aes(GROUP, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
   stat_summary(fun.y = mean, geom="point") +
   stat_summary(fun.data = mean_se, geom="linerange") +
-  ggtitle("Comparing densities per channel ~ group/age")
+  ggtitle("Comparing densities per channel ~ group/age, where n = # animals ")
 
 
-```
-
-# Table of mean and SEM of densities per group
-```{r}
-# Get mean
-# young = filter(rawkk, EXPT=="AGE 10")
-# old = filter(rawkk, EXPT=="AGE 11")
-# 
-# age10.mean = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), mean)
-# age11.mean = aggregate(filter(rawkk[,13:18], EXPT=="AGE 11"), list(rawkk$GROUP[rawkk$EXPT=="AGE 11"]), mean)
-# head(age10.mean)
-# head(age11.mean)
-# 
-# # Get SEM
-# age10.se = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), std.error)
-# age11.se = aggregate(filter(rawkk[,13:18], EXPT=="AGE 11"), list(rawkk$GROUP[rawkk$EXPT=="AGE 11"]), std.error)
-# head(age10.se)
-# head(age11.se)
-
-# # Check n
-# age10.count = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), count)
-# head(age10.count)
-# 
-# # Check variance
-# age10.var = aggregate(filter(rawkk[,13:18], EXPT=="AGE 10"), list(rawkk$GROUP[rawkk$EXPT=="AGE 10"]), var)
-# head(age10.var)
-
-
-```
-
-
-
-# Compare old/young for each group
-- Question: What the fuck is going on with the differences here? Mean and SEM are in the table in previous section. 
-- Assuming that DAPI should be the same across groups, do they match across groups and experiments? 
-```{r}
-# How to use stat summmary to ggplot error bars
-for (i in channels.all) {
-  print (
-    ggplot(rawkk) + 
-      aes(x = GROUP, y = rawkk[i], fill=EXPT, color=EXPT) +
-      coord_flip() + 
-      stat_summary(fun.y = mean, 
-                   position="dodge",
-                   size=5, 
-                   geom="point") +
-      stat_summary(fun.data = mean_se, 
-                   size=.5,
-                   position = "dodge",
-                   geom="linerange") +
-      ggtitle(i)
-  )
-}
 ```
 
 
 
 # Look means at each SUBROI
-```{r, fig.width=4,fig.height=7}
-for (i in channels.all) {
-  print (
-    ggplot(rawkk) + aes(factor(SUBROI), rawkk[i], fill=EXPT, color=EXPT) + 
-      stat_summary(fun.y = mean, 
-                   position="dodge",
-                   geom="point") +
-      stat_summary(fun.data = mean_se, 
-                   size=.5,
-                   position="dodge",
-                   geom="linerange") +
-      ggtitle(i) + coord_flip() 
-  )
-}
+- not sure where these SEMs are correct
+```{r, fig.width=24, fig.height=32}
+# for (i in channels.all) {
+#   print (
+#     ggplot(rawkk) + aes(factor(SUBROI), rawkk[i], fill=EXPT, color=EXPT) + 
+#       stat_summary(fun.y = mean, 
+#                    position="dodge",
+#                    geom="point") +
+#       stat_summary(fun.data = mean_se, 
+#                    size=.5,
+#                    position="dodge",
+#                    geom="linerange") +
+#       ggtitle(i) + coord_flip() 
+#   )
+# }
+
+
+kkl.collapseID = kk.long %>% 
+  group_by(CHANNEL, GROUP, EXPT, SUBROI, ID) %>%
+    summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
+            ymin = mean_density-sem, ymax = mean_density+sem)
+kkl.collapseID
+
+
+ggplot(kkl.collapseID) + aes(SUBROI, mean_density, fill=EXPT, color=EXPT) +
+  stat_summary(fun.y = mean, geom = "point") +
+  stat_summary(fun.data = mean_se, size=0.5, geom="linerange") +
+  coord_flip() + facet_wrap(GROUP~CHANNEL, ncol=6, scales="free")
+
+
+ggplot(filter(kk.long, kk.long$CHANNEL=="OLmm2.norm")) + aes(SUBROI, DENSITY, fill=EXPT, color=EXPT) +
+  stat_summary(fun.y = mean, geom = "point") +
+  stat_summary(fun.data = mean_se, size=0.5, geom="linerange") +
+  ggtitle("OLmm2 normalized to Arc and GFP") + coord_flip()
+
 
 ```
 
 
-# Now let's separate them by ROIs
-- I'm not sure whether these error bars are correct... Are the SEMs factored out or not? How can these error bars be so small?
+# I'm interested to know how the individual counts relate to the OL
+- Let's do a linear regression matrix
+
 ```{r}
 
-# Make list of interesting ROIs
-interesting.ROI = c("AcB", "CA1", "CA3", "CeA", "DG", "ENT","PAG", "PrL", "RSCla", "LA", "LAT")
-ROI.acb = "AcB"
 
-# Make pointrange graphs 
-ggplot(rawkk[rawkk$SUBROI %in% ROI.acb,]) +
-  aes(GROUP, OLmm2, fill=EXPT, shape=EXPT, color=EXPT) +
-  stat_summary(fun.y = mean, 
-               geom="point") +
-  stat_summary(fun.data=mean_se, 
-               geom="pointrange") +
-  facet_wrap(~SUBROI)
+# Relative channel correlations
+ggpairs(kk[,13:18]) + 
+  ggtitle("How do the channels relate to each other?")
 
-# # check the SEM for the factored graph
-# young.acb = filter(rawkk, EXPT=="AGE 10" & SUBROI=="AcB")
-# young.acb.se = aggregate(young.acb[,13:18], list(young.acb$GROUP), std.error)
-# head(young.acb.se)
+# Does the channel relationship only matter per group?
+set = kk %>% filter(GROUP=="CAA")
+ggpairs(set[,13:18]) + ggtitle("How do the channels relate to each other? (CAA only)")
+ggcorr(set[,13:18], label = TRUE) + ggtitle("How do the channels relate to each other? (CAA only)")
 
-# let's check if we can summarize the table by dplyr
-rawkk[rawkk$SUBROI=="AcB",] %>% group_by(GROUP, EXPT) %>% summarize_if(is.numeric, mean)
-rawkk[rawkk$SUBROI=="AcB",] %>% group_by(GROUP, EXPT) %>% summarize_if(is.numeric, std.error)
+set = kk %>% filter(GROUP=="CAB")
+ggpairs(set[,13:18]) + ggtitle("How do the channels relate to each other? (CAB only)")
+ggcorr(set[,13:18], label = TRUE) + ggtitle("How do the channels relate to each other? (CAB only)")
+
+set = kk %>% filter(GROUP=="SAA")
+ggpairs(set[,13:18]) + ggtitle("How do the channels relate to each other? (SAA only)")
+ggcorr(set[,13:18], label = TRUE) + ggtitle("How do the channels relate to each other? (SAA only)")
+
+set = kk %>% filter(GROUP=="SAB")
+ggpairs(set[,13:18]) + ggtitle("How do the channels relate to each other? (SAB only)")
+ggcorr(set[,13:18], label = TRUE) + ggtitle("How do the channels relate to each other? (SAB only)")
+
+# What about per age?
+set = kk %>% filter(EXPT=="AGE 10")
+ggpairs(set[,13:18]) + 
+  ggtitle("How do the channels relate to each other? (YOUNG only)")
+ggcorr(set[,13:18], label = TRUE) + ggtitle("How do the channels relate to each other? (YOUNG only)")
+
+set = kk %>% filter(EXPT=="AGE 11")
+ggpairs(set[,13:18]) + 
+  ggtitle("How do the channels relate to each other? (OLD only)")
+ggcorr(set[,13:18], label = TRUE) + ggtitle("How do the channels relate to each other? (OLD only)")
+
+
+# 
+# 
+# # How does the OL vary with the normalized OL?
+# 
+# ggplot(kk) + aes(x=OLmm2, y=OLmm2.norm) +
+#   geom_smooth(method='lm', formula=y~x) + 
+#   ggtitle("How does OL affect OL normalized?") +
+#   labs(x = "Overlap density", y = "Normalized overlap") +
+#     stat_poly_eq(formula = y~x, 
+#                aes(label = paste(..eq.label.., ..rr.label.., sep = "~~~")), 
+#                parse = TRUE)
+# 
 
 
 ```
@@ -180,8 +193,7 @@ rawkk[rawkk$SUBROI=="AcB",] %>% group_by(GROUP, EXPT) %>% summarize_if(is.numeri
 # For loop for each ROI
 - Make a graph and the data table separately
 
-```{r}
-
+```{r, eval=FALSE}
 for (k in channels.all) {
   
   for (roi in interesting.ROI) {
@@ -219,8 +231,19 @@ for (k in channels.all) {
 }
 
 
+```
 
+
+# Which ROI are most reliable? Areamm2 by ROI
+- I'd say biggest ROI are most reliable
+```{r,fig.width=6,fig.height=8 }
+
+ggplot(kk) + aes(x=reorder(SUBROI, AREAmm2), AREAmm2) + coord_flip() +
+  stat_summary(fun.y = mean, geom="point") + 
+  ggtitle("ROI Area measured as proxy for reliability")
 
 ```
+
+
 
 
