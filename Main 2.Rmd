@@ -61,9 +61,9 @@ channels.all = names(rawkk[13:18])
 
 
 # Transform rawkk to a long format
-rawkk_long = melt(rawkk, id.vars=names(rawkk[1:11]), variable.name = "CHANNEL", value.name="DENSITY")
+rawkk_long = melt(rawkk, id.vars=names(rawkk[1:12]), variable.name = "CHANNEL", value.name="DENSITY")
 
-ggplot(rawkk_long) + aes(GROUP, DENSITY, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free", ncol=4) +
+ggplot(rawkk_long) + aes(GROUP, DENSITY, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
   stat_summary(fun.y = mean, geom="point") +
   stat_summary(fun.data = mean_se, geom="linerange") +
   ggtitle("Comparing densities per channel ~ group/age")
@@ -130,11 +130,10 @@ for (i in channels.all) {
 ```{r, fig.width=4,fig.height=7}
 for (i in channels.all) {
   print (
-    ggplot(rawkk) +
-      aes(factor(SUBROI), rawkk[i], fill=EXPT) + 
+    ggplot(rawkk) + aes(factor(SUBROI), rawkk[i], fill=EXPT, color=EXPT) + 
       stat_summary(fun.y = mean, 
                    position="dodge",
-                   geom="bar") +
+                   geom="point") +
       stat_summary(fun.data = mean_se, 
                    size=.5,
                    position="dodge",
