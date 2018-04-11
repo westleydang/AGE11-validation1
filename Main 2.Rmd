@@ -1,8 +1,8 @@
 ---
 title: "R Notebook"
 output:
-  html_document: default
   html_notebook: default
+  html_document: default
   pdf_document: default
 ---
 
@@ -52,8 +52,14 @@ animal_details$Mouse.ID. = as.factor(animal_details$ID)
 colnames(animal_details)[9] = "idBysubroi"
 kk = merge(animal_details, kk, by = "idBysubroi")
 colnames(kk)[2] = "GROUP"
-attach(kk)
 
+
+# Merge gruop details
+group_details = read.csv("group_details.csv")
+names(group_details)[1] = "GROUP"
+kk = merge(group_details, kk, by="GROUP")
+
+attach(kk)
 
 # normalize the OL counts
 kk$OLmm2.norm = kk$OLmm2
@@ -61,7 +67,7 @@ kk$OLmm2.norm = kk$OLmm2/(kk$Ch2mm2 + kk$Ch4mm2 - kk$OLmm2)
 
 
 # Transform rawkk to a long format
-kk.long = melt(kk, id.vars=names(kk[1:12]), variable.name = "CHANNEL", value.name="DENSITY")
+kk.long = melt(kk, id.vars=names(kk[1:14]), variable.name = "CHANNEL", value.name="DENSITY")
 
 
 ```
@@ -70,14 +76,14 @@ kk.long = melt(kk, id.vars=names(kk[1:12]), variable.name = "CHANNEL", value.nam
 # Create table of data to find the mean and SEM for for each: roi, group, age
 - Summarize a new table where each obs is an animal with unweighted average density for whole brain 
 - Then plot so that each error bar reflects number of animals 
-```{r}
+```{r, message=FALSE, warning=FALSE}
 
 # 
 # # What is the mean count per brain, normalized to area?
-# channels.all = names(kk[13:18])
+# channels.all = names(kk[15:20])
 
 kkl.collapseROI = kk.long %>%
-  group_by(CHANNEL, GROUP, EXPT, ID) %>%
+  group_by(CHANNEL, GROUP, VALENCE, CONTEXT, EXPT, ID) %>%
   summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
             ymin = mean_density-sem, ymax = mean_density+sem)
 kkl.collapseROI
@@ -94,7 +100,7 @@ ggplot(kkl.collapseROI) + aes(GROUP, mean_density, fill=EXPT, color = EXPT) + fa
 
 # Look means at each SUBROI
 - not sure where these SEMs are correct
-```{r, fig.width=24, fig.height=32}
+```{r, fig.width=24, fig.height=32, message=FALSE, warning=FALSE}
 # for (i in channels.all) {
 #   print (
 #     ggplot(rawkk) + aes(factor(SUBROI), rawkk[i], fill=EXPT, color=EXPT) + 
@@ -135,40 +141,54 @@ ggplot(filter(kk.long, kk.long$CHANNEL=="OLmm2.norm")) + aes(SUBROI, DENSITY, fi
 # I'm interested to know how the individual counts relate to the OL
 - Let's do a linear regression matrix
 
-```{r}
+```{r, echo=FALSE, warning=FALSE, message=FALSE}
 
 
 # Relative channel correlations
-ggpairs(kk[,13:18]) + 
+ggpairs(kk[,15:20], progress=FALSE) + 
   ggtitle("How do the channels relate to each other?")
 
-# Does the channel relationship only matter per group?
-set = kk %>% filter(GROUP=="CAA")
-ggpairs(set[,13:18]) + ggtitle("How do the channels relate to each other? (CAA only)")
-ggcorr(set[,13:18], label = TRUE) + ggtitle("How do the channels relate to each other? (CAA only)")
 
-set = kk %>% filter(GROUP=="CAB")
-ggpairs(set[,13:18]) + ggtitle("How do the channels relate to each other? (CAB only)")
-ggcorr(set[,13:18], label = TRUE) + ggtitle("How do the channels relate to each other? (CAB only)")
+# Make a loop to print out all those correlation graphs
+for (temp.age in factor(levels(kk$EXPT))) {
+  for (temp.grp in factor(levels(kk$GROUP))) {
+  # subset the data in intermediate set
+    title = paste("How do the channels relate to each other? -->", temp.grp, temp.age)
+    kk.temp = kk %>% filter(GROUP == temp.grp) %>% filter (EXPT == temp.age)
 
-set = kk %>% filter(GROUP=="SAA")
-ggpairs(set[,13:18]) + ggtitle("How do the channels relate to each other? (SAA only)")
-ggcorr(set[,13:18], label = TRUE) + ggtitle("How do the channels relate to each other? (SAA only)")
+    # then print the pairs and corrs without the progress
+    print(ggpairs(kk.temp[,15:20], label=T) + ggtitle(title), progress=F)
+    print(ggcorr(kk.temp[,15:20], label=T) + ggtitle(title), progress=F)
+  }
+}
 
-set = kk %>% filter(GROUP=="SAB")
-ggpairs(set[,13:18]) + ggtitle("How do the channels relate to each other? (SAB only)")
-ggcorr(set[,13:18], label = TRUE) + ggtitle("How do the channels relate to each other? (SAB only)")
+
+# 
+#     
+# makePlot = function(x) {
+#   titleF = paste("How do the channels relate to each other? -->", x)
+#   kk.temp = kk %>% filter(GROUP==x)
+#   p = ggcorr(kk.temp[,15:20], label=TRUE, size=3) + labs(title = "Points Per Game")
+#   return(p) 
+# }
+# 
+# l = lapply(levels(kk$GROUP), makePlot)
+# ggmatrix(l, 2, 2, c("A", "B"), c("C", "D"))
+# 
+# 
+# 
+
 
 # What about per age?
-set = kk %>% filter(EXPT=="AGE 10")
-ggpairs(set[,13:18]) + 
-  ggtitle("How do the channels relate to each other? (YOUNG only)")
-ggcorr(set[,13:18], label = TRUE) + ggtitle("How do the channels relate to each other? (YOUNG only)")
-
-set = kk %>% filter(EXPT=="AGE 11")
-ggpairs(set[,13:18]) + 
-  ggtitle("How do the channels relate to each other? (OLD only)")
-ggcorr(set[,13:18], label = TRUE) + ggtitle("How do the channels relate to each other? (OLD only)")
+# set = kk %>% filter(EXPT=="AGE 10")
+# ggpairs(set[,15:20]) + 
+#   ggtitle("How do the channels relate to each other? (YOUNG only)")
+# ggcorr(set[,15:20], label = TRUE) + ggtitle("How do the channels relate to each other? (YOUNG only)")
+# 
+# set = kk %>% filter(EXPT=="AGE 11")
+# ggpairs(set[,15:20]) + 
+#   ggtitle("How do the channels relate to each other? (OLD only)")
+# ggcorr(set[,15:20], label = TRUE) + ggtitle("How do the channels relate to each other? (OLD only)")
 
 
 # 
