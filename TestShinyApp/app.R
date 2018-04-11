@@ -8,8 +8,40 @@
 #
 
 library(shiny)  
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(plotrix)
+
+# Load the data
+kk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", header=TRUE, sep=",")
+kk$idBysubroi = as.factor(kk$idBysubroi)
 
 
+# Merge animal details
+animal_details = read.csv("animal_details.csv")
+animal_details$Mouse.ID. = as.factor(animal_details$ID)
+colnames(animal_details)[9] = "idBysubroi"
+kk = merge(animal_details, kk, by = "idBysubroi")
+colnames(kk)[2] = "GROUP"
+
+
+# Merge gruop details
+group_details = read.csv("group_details.csv")
+names(group_details)[1] = "GROUP"
+kk = merge(group_details, kk, by="GROUP")
+
+attach(kk)
+
+# normalize the OL counts
+kk$OLmm2.norm = kk$OLmm2
+kk$OLmm2.norm = kk$OLmm2/(kk$Ch2mm2 + kk$Ch4mm2 - kk$OLmm2)
+
+
+# Transform rawkk to a long format
+kk.long = melt(kk, id.vars=names(kk[1:14]), variable.name = "CHANNEL", value.name="DENSITY")
+
+############################################
 
 # Define UI for application that draws a histogram
 ui <- fluidPage(
@@ -20,60 +52,78 @@ ui <- fluidPage(
    # Sidebar with a slider input for number of bins 
    sidebarLayout(
       sidebarPanel(
-         selectInput("ch",
-                     "What channel:",
-                     factor(channels.all)),
         selectInput("roi",
-                    "What roi:",
-                    factor(rawkk$SUBROI))
+                    "What ROI:",
+                    factor(kk$SUBROI),
+                    multiple=F, 
+                    selected = "LA"
+                    )
       ),
       
       # Show a plot of the generated distribution
       mainPanel(
-         plotOutput("distPlot")
+         plotOutput("distPlot"),
+         plotOutput("distPlot2"),
+         plotOutput("distPlot3")
       )
    )
 )
 
+############################################
+
 # Define server logic required to draw a histogram
 server <- function(input, output) {
-  
-  library(ggplot2)
-  library(reshape2)
-  library(dplyr)
-  library(plotrix)
-  
-  # Load the data
-  rawkk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", header=TRUE, sep=",")
-  rawkk$idBysubroi = as.factor(rawkk$idBysubroi)
-  colnames(rawkk)[2] = "GROUP"
-  
-  # Merge animal details
-  animal_details = read.csv("animal_details.csv")
-  animal_details$Mouse.ID. = as.factor(animal_details$ID)
-  colnames(animal_details)[9] = "idBysubroi"
-  rawkk = merge(animal_details, rawkk, by = "idBysubroi")
-  attach(rawkk)
-  rawkk$OLmm2.norm = rawkk$OLmm2
-  rawkk$OLmm2.norm = rawkk$OLmm2/(rawkk$Ch2mm2 + rawkk$Ch4mm2 - rawkk$OLmm2)
-  
-  # What is the mean count per brain, normalized to area?
-  channels.all = names(rawkk[13:18])
-  
+
   
    
    output$distPlot <- renderPlot({
-      # draw
-      df = rawkk[rawkk$SUBROI==input$roi,]
-      ggplot(df) +
-        aes(x=GROUP, y=df[, input$ch], fill=EXPT, shape=EXPT, color=EXPT) +
-        stat_summary(fun.y = mean, 
-                     geom="point") +
-        stat_summary(fun.data=mean_se, 
-                     geom="pointrange") +
-        labs(y = as.character(input$ch))
+     
+     kkl.collapseROI = kk.long %>% filter(SUBROI==input$roi) %>%
+       group_by(CHANNEL, GROUP, VALENCE, CONTEXT, EXPT, ID) %>%
+       summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
+                 ymin = mean_density-sem, ymax = mean_density+sem)
+     kkl.collapseROI
+
+      ggplot(kkl.collapseROI) + aes(GROUP, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
+        stat_summary(fun.y = mean, geom="point") +
+        stat_summary(fun.data = mean_se, geom="linerange") +
+        ggtitle("Comparing densities per channel ~ group/age, where n = # animals ")
+
+   })   
+   
+   
+   output$distPlot2 <- renderPlot({
+     kkl.collapseROI = kk.long %>% filter(SUBROI==input$roi) %>%
+       group_by(CHANNEL, GROUP, VALENCE, CONTEXT, EXPT, ID) %>%
+       summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
+                 ymin = mean_density-sem, ymax = mean_density+sem)
+     kkl.collapseROI
+
+     ggplot(kkl.collapseROI) + aes(VALENCE, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
+       stat_summary(fun.y = mean, geom="point") +
+       stat_summary(fun.data = mean_se, geom="linerange") +
+       ggtitle("... comparing context vs shock")
+
    })
-}
+   
+   
+   output$distPlot3 <- renderPlot({
+     kkl.collapseROI = kk.long %>% filter(SUBROI==input$roi) %>%
+       group_by(CHANNEL, GROUP, VALENCE, CONTEXT, EXPT, ID) %>%
+       summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
+                 ymin = mean_density-sem, ymax = mean_density+sem)
+     kkl.collapseROI
+     
+     ggplot(kkl.collapseROI) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
+       stat_summary(fun.y = mean, geom="point") +
+       stat_summary(fun.data = mean_se, geom="linerange") +
+       ggtitle("... comparing AA vs AB")
+     
+   })
+   
+   
+   
+} # end server
 
 # Run the application 
 shinyApp(ui = ui, server = server)
