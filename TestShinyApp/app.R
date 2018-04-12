@@ -12,7 +12,6 @@ library(ggplot2)
 library(reshape2)
 library(dplyr)
 library(plotrix)
-
 # Load the data
 kk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", header=TRUE, sep=",")
 kk$idBysubroi = as.factor(kk$idBysubroi)
@@ -26,20 +25,33 @@ kk = merge(animal_details, kk, by = "idBysubroi")
 colnames(kk)[2] = "GROUP"
 
 
-# Merge gruop details
+# Merge group details
 group_details = read.csv("group_details.csv")
 names(group_details)[1] = "GROUP"
 kk = merge(group_details, kk, by="GROUP")
 
-attach(kk)
+replace = read.csv("replacements.csv")
+names(replace) = c("pre", "post")
+
+# Rename the age groups
+kk$EXPT = as.factor(as.character(replace$post[match(kk$EXPT, replace$pre)]))
 
 # normalize the OL counts
 kk$OLmm2.norm = kk$OLmm2
 kk$OLmm2.norm = kk$OLmm2/(kk$Ch2mm2 + kk$Ch4mm2 - kk$OLmm2)
 
+# Rename the channels
+names(kk)[15:20] = as.character(replace[1:6,2])
+
+
+attach(kk)
 
 # Transform rawkk to a long format
 kk.long = melt(kk, id.vars=names(kk[1:14]), variable.name = "CHANNEL", value.name="DENSITY")
+
+
+
+
 
 ############################################
 
@@ -87,7 +99,11 @@ server <- function(input, output) {
       ggplot(kkl.collapseROI) + aes(GROUP, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
         stat_summary(fun.y = mean, geom="point") +
         stat_summary(fun.data = mean_se, geom="linerange") +
-        ggtitle("Comparing densities per channel ~ group/age, where n = # animals ")
+        ggtitle("Comparing densities per channel ~ group/age, where n = # animals ") +
+        theme(text=element_text(size=12),
+              axis.text.x = element_text(angle = 90, hjust = 1))
+        
+      
 
    })   
    
@@ -102,7 +118,9 @@ server <- function(input, output) {
      ggplot(kkl.collapseROI) + aes(VALENCE, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
        stat_summary(fun.y = mean, geom="point") +
        stat_summary(fun.data = mean_se, geom="linerange") +
-       ggtitle("... comparing context vs shock")
+       ggtitle("... comparing context vs shock") +
+       theme(text=element_text(size=16),
+             axis.text.x = element_text(angle = 90, hjust = 1))
 
    })
    
@@ -117,7 +135,9 @@ server <- function(input, output) {
      ggplot(kkl.collapseROI) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
        stat_summary(fun.y = mean, geom="point") +
        stat_summary(fun.data = mean_se, geom="linerange") +
-       ggtitle("... comparing AA vs AB")
+       ggtitle("... comparing AA vs AB") +
+       theme(text=element_text(size=12),
+             axis.text.x = element_text(angle = 90, hjust = 1))
      
    })
    
