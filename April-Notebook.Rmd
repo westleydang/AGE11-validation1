@@ -1,0 +1,211 @@
+---
+title: "AGE 10 series - April Explorations"
+output:
+  html_notebook: default
+  html_document: default
+  pdf_document: default
+---
+
+# 1. Prep the analysis. 
+## 1.1. Group Legends
+- SAB - shock AB
+- SAA - shock AA
+- CAB - context AB
+- CAA - context AA
+
+## 1.2 Channel Legend
+- Ch 1 = DAPI (stained)
+- Ch 2 = GFP (experience 1)
+- Ch 3 = GFAP (stained)
+- Ch 4 = ARC (experience 2; stained)
+- OL = overlap GFP/Arc
+- OL.norm = overlap normalized to GFP/Arc
+
+## 1.3 EXPT legends
+- AGE 10 = young mice
+- AGE 11 = old mice
+
+
+## 1.4 Prepare the data
+- loads the libraries
+- loads the data (as kk)
+- merges in the animal details
+- creates a normalized measure of OL counts
+- transforms a long format version of data (kk.long)
+
+
+```{r, echo=F,message=FALSE, warning=FALSE}
+# Load libraries
+library(ggplot2)
+library(reshape2)
+library(dplyr)
+library(plotrix)
+library(GGally)
+library(reshape2)
+
+
+
+# Load the data
+kk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", header=TRUE, sep=",")
+kk$idBysubroi = as.factor(kk$idBysubroi)
+
+
+# Merge animal details
+animal_details = read.csv("animal_details.csv")
+animal_details$Mouse.ID. = as.factor(animal_details$ID)
+colnames(animal_details)[9] = "idBysubroi"
+kk = merge(animal_details, kk, by = "idBysubroi")
+colnames(kk)[2] = "GROUP"
+
+
+# Merge group details
+group_details = read.csv("group_details.csv")
+names(group_details)[1] = "GROUP" # because for some reason it messes up
+kk = merge(group_details, kk, by="GROUP")
+
+replace = read.csv("replacements.csv")
+names(replace) = c("pre", "post") # because for some reason the names mess up
+
+# Rename the age groups
+kk$EXPT = as.factor(as.character(replace$post[match(kk$EXPT, replace$pre)]))
+
+# normalize the OL counts
+kk$OLmm2.norm = kk$OLmm2
+kk$OLmm2.norm = kk$OLmm2/(kk$Ch2mm2 + kk$Ch4mm2 - kk$OLmm2)
+
+# Rename all variable names of the channels
+names(kk)[15:20] = as.character(replace[1:6,2])
+
+attach(kk)
+
+# Transform rawkk to a long format
+kk.long = melt(kk, id.vars=names(kk[1:14]), variable.name = "CHANNEL", value.name="DENSITY")
+
+
+```
+
+
+# 2. Whole brain (but not really)
+- Create table of data to find the mean and SEM for for each: roi, group, age
+- Summarize a new table where each obs is an animal with unweighted average density for whole brain 
+- Then plot so that each error bar reflects number of animals 
+
+
+```{r, echo=F,message=FALSE, warning=FALSE}
+
+# 
+# # What is the mean count per brain, normalized to area?
+# channels.all = names(kk[15:20])
+
+kkl.collapseROI = kk.long %>%
+  group_by(CHANNEL, GROUP, VALENCE, CONTEXT, EXPT, ID) %>%
+  summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
+            ymin = mean_density-sem, ymax = mean_density+sem)
+kkl.collapseROI
+
+ggplot(kkl.collapseROI) + aes(GROUP, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
+  stat_summary(fun.y = mean, geom="point") +
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("Comparing densities per channel ~ group/age, where n = # animals ")
+
+ggplot(kkl.collapseROI) + aes(VALENCE, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
+  stat_summary(fun.y = mean, geom="point") +
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("--> comparing context vs. shock")
+
+ggplot(kkl.collapseROI) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
+  stat_summary(fun.y = mean, geom="point") +
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("--> comparing A/A vs. A/B")
+
+
+```
+
+## 2.1 Interpretations of these graphs:
+1. DAPI counts are fairly similar between young/age groups, which suggests to me that the counts are somewhat normal, except between AA vs AB in the young animals, which I know are different batches. 
+2. Old animals consistently have higher densities, what are possible reasons? 
+- Is it because the staining for these animals were done at a later time and were probably better? 
+3. How do we know for sure that the young vs. old aren't reflectve of technical artifacts?
+- double check that the imaging parameters are the same
+- find the mean INTENSITY in each of these groups
+- if we only include the brightest z-plane, can we alleviate this?
+4. From these graphs it looks like we might not be able to make any real inferences between the old/young animal sets, but what we can do is compare the groups within animal sets, and how those differences compare to each other.
+- To do this, we need to normalize the data with the scale() function, but we also need to make sure we scale correctly within each subdivision, and not across the entire variable. 
+- 
+
+
+---
+
+# 3. Which areas are induced by shock? 
+**Purpose.** Find the areas that have higher H2BGFP and ArcIHC densities in shock vs. context. 
+
+**Approach.** Split the groups into channels, age, context, then ROI. Then normalize the variables with the scale() function, and then recombine into new working dataframe. The normalization should only reflect the animals within the same age and context, regardless of whether they were AA or AB. Then graph the standard deviations relative to the mean rather than the density to see the relative changes between context and shock. 
+
+Step 1: Group all the context/shock animals and normalize them, then separate them by context/shock. 
+Step 2: Melt CONTEXT to include context/shock columns. 
+Step 3: Aggregate them into means and subtract shock - column. 
+Step 4. Cast data back to CONTEXT with the "diff norms" 
+Step 5. Graph SUBROI by "diffnorm" for only H2BGFP
+
+```{r, echo=F, fig.height = 6, message=FALSE, warning=FALSE}
+
+shock.induction = plyr::ddply(kk.long, .(CHANNEL, SUBROI, EXPT), transform, norm = scale(DENSITY))
+shock.induction = dcast(shock.induction, CHANNEL + SUBROI + EXPT ~ VALENCE,
+                        value.var = "norm", fun.aggregate = mean)
+shock.induction$DIFFNORM = shock.induction$SHOCK - shock.induction$CONTEXT
+
+ggplot(shock.induction %>% filter(CHANNEL=="H2BGFP")) + aes(reorder(SUBROI, DIFFNORM), DIFFNORM) + 
+  stat_summary(fun.y = mean, geom="point") +
+  # stat_summary(fun.data = mean_se, geom="linerange") +
+  coord_flip() 
+  
+
+
+
+```
+
+
+
+
+
+
+
+
+# trash
+
+```{r, echo=F, message=FALSE, warning=FALSE}
+# for (i in channels.all) {
+#   print (
+#     ggplot(rawkk) + aes(factor(SUBROI), rawkk[i], fill=EXPT, color=EXPT) + 
+#       stat_summary(fun.y = mean, 
+#                    position="dodge",
+#                    geom="point") +
+#       stat_summary(fun.data = mean_se, 
+#                    size=.5,
+#                    position="dodge",
+#                    geom="linerange") +
+#       ggtitle(i) + coord_flip() 
+#   )
+# }
+
+
+kkl.collapseID = kk.long %>% 
+  group_by(CHANNEL, GROUP, EXPT, SUBROI, ID) %>%
+    summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
+            ymin = mean_density-sem, ymax = mean_density+sem)
+kkl.collapseID
+
+
+# ggplot(kkl.collapseID) + aes(SUBROI, mean_density, fill=EXPT, color=EXPT) +
+#   stat_summary(fun.y = mean, geom = "point") +
+#   stat_summary(fun.data = mean_se, size=0.5, geom="linerange") +
+#   coord_flip() + facet_wrap(GROUP~CHANNEL, ncol=3, scales="free")
+# 
+# 
+# ggplot(filter(kk.long, kk.long$CHANNEL=="OLmm2.norm")) + aes(SUBROI, DENSITY, fill=EXPT, color=EXPT) +
+#   stat_summary(fun.y = mean, geom = "point") +
+#   stat_summary(fun.data = mean_se, size=0.5, geom="linerange") +
+#   ggtitle("OLmm2 normalized to Arc and GFP") + coord_flip()
+
+
+```
