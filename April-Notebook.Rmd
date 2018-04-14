@@ -37,13 +37,10 @@ output:
 ```{r, echo=F,message=FALSE, warning=FALSE}
 # Load libraries
 library(ggplot2)
-library(reshape2)
 library(dplyr)
 library(plotrix)
 library(GGally)
 library(reshape2)
-
-
 
 # Load the data
 kk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", header=TRUE, sep=",")
@@ -101,9 +98,11 @@ kkl.collapseROI = kk.long %>%
   group_by(CHANNEL, GROUP, VALENCE, CONTEXT, EXPT, ID) %>%
   summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
             ymin = mean_density-sem, ymax = mean_density+sem)
+
 kkl.collapseROI
 
-ggplot(kkl.collapseROI) + aes(GROUP, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
+ggplot(kkl.collapseROI) + aes(GROUP, mean_density, fill=EXPT, color = EXPT) + 
+  facet_wrap(~CHANNEL, scales="free") +
   stat_summary(fun.y = mean, geom="point") +
   stat_summary(fun.data = mean_se, geom="linerange") +
   ggtitle("Comparing densities per channel ~ group/age, where n = # animals ")
@@ -139,28 +138,63 @@ ggplot(kkl.collapseROI) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT) + 
 # 3. Which areas are induced by shock? 
 **Purpose.** Find the areas that have higher H2BGFP and ArcIHC densities in shock vs. context. 
 
-**Approach.** Split the groups into channels, age, context, then ROI. Then normalize the variables with the scale() function, and then recombine into new working dataframe. The normalization should only reflect the animals within the same age and context, regardless of whether they were AA or AB. Then graph the standard deviations relative to the mean rather than the density to see the relative changes between context and shock. 
+**Approach.** Split the groups into channels, age, context, then ROI. Then normalize the variables with the scale() function, and then recombine into new working dataframe. The normalization should only reflect the animals within the same valence groups, regardless of whether they were AA or AB. Then graph the standard deviations relative to the mean rather than the density to see the relative changes between context and shock. 
 
-Step 1: Group all the context/shock animals and normalize them, then separate them by context/shock. 
-Step 2: Melt CONTEXT to include context/shock columns. 
-Step 3: Aggregate them into means and subtract shock - column. 
-Step 4. Cast data back to CONTEXT with the "diff norms" 
-Step 5. Graph SUBROI by "diffnorm" for only H2BGFP
+- Step 1: Group all the context/shock animals and normalize them, then separate them by context/shock. 
+- Step 2: Melt CONTEXT to include context/shock columns. 
+- Step 3: Aggregate them into means and subtract shock - column. 
+- Step 4. Cast data back to CONTEXT with the "diff norms" 
+- Step 5. Graph SUBROI by "diffnorm" for only H2BGFP
 
-```{r, echo=F, fig.height = 6, message=FALSE, warning=FALSE}
+- positive numbers mean more counts in SHOCK than CONTEXT
 
-shock.induction = plyr::ddply(kk.long, .(CHANNEL, SUBROI, EXPT), transform, norm = scale(DENSITY))
+```{r, echo=F, fig.width = 2, fig.height = 4, message=FALSE, warning=FALSE}
+
+library(plyr)
+shock.induction = ddply(kk.long, .(CHANNEL, SUBROI, EXPT), transform, norm = scale(DENSITY))
 shock.induction = dcast(shock.induction, CHANNEL + SUBROI + EXPT ~ VALENCE,
                         value.var = "norm", fun.aggregate = mean)
 shock.induction$DIFFNORM = shock.induction$SHOCK - shock.induction$CONTEXT
 
-ggplot(shock.induction %>% filter(CHANNEL=="H2BGFP")) + aes(reorder(SUBROI, DIFFNORM), DIFFNORM) + 
+ggplot(shock.induction %>% filter(CHANNEL=="H2BGFP")) + 
+  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) + 
   stat_summary(fun.y = mean, geom="point") +
-  # stat_summary(fun.data = mean_se, geom="linerange") +
-  coord_flip() 
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  coord_flip() + geom_hline(yintercept = 0) + 
+  #facet_wrap(~EXPT) +
+  ggtitle("Relative shock induction in H2BGFP")
   
+ggplot(shock.induction %>% filter(CHANNEL=="ArcIHC")) + 
+  aes(reorder(SUBROI, DIFFNORM), DIFFNORM) + 
+  stat_summary(fun.y = mean, geom="point") +
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  coord_flip() + geom_hline(yintercept = 0) + 
+  #facet_wrap(~EXPT) +
+  ggtitle("Relative shock induction in ArcIHC")
 
 
+
+```
+
+
+
+# 4. How about overlap differences in AA vs AB?
+- Positive numbers mean more overlap in AA than in AB group, vice versa. 
+
+```{r, echo=F, fig.width = 2, fig.height = 4, message=FALSE, warning=FALSE}
+
+ol.induction = plyr::ddply(kk.long, .(CHANNEL, SUBROI, EXPT), transform, norm = scale(DENSITY))
+ol.induction = dcast(ol.induction, CHANNEL + SUBROI + EXPT ~ CONTEXT,
+                        value.var = "norm", fun.aggregate = mean)
+ol.induction$DIFFNORM = ol.induction$AA - ol.induction$AB
+
+ggplot(shock.induction %>% filter(CHANNEL=="OL")) + 
+  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color = EXPT) + 
+  stat_summary(fun.y = mean, geom="point") +
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  coord_flip() + geom_hline(yintercept = 0) + 
+  #facet_wrap(~EXPT) +
+  ggtitle("Relative OL induction (in AA vs AB)")
 
 ```
 
