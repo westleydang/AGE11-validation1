@@ -7,13 +7,13 @@ output:
 ---
 
 # 1. Prep the analysis. 
-## 1.1. Group Legends
+#### 1.1. Group Legends
 - SAB - shock AB
 - SAA - shock AA
 - CAB - context AB
 - CAA - context AA
 
-## 1.2 Channel Legend
+#### 1.2 Channel Legend
 - Ch 1 = DAPI (stained)
 - Ch 2 = GFP (experience 1)
 - Ch 3 = GFAP (stained)
@@ -21,63 +21,23 @@ output:
 - OL = overlap GFP/Arc
 - OL.norm = overlap normalized to GFP/Arc
 
-## 1.3 EXPT legends
+#### 1.3 EXPT legends
 - AGE 10 = young mice
 - AGE 11 = old mice
 
-
-## 1.4 Prepare the data
+#### 1.4 Prepare the data
 - loads the libraries
 - loads the data (as kk)
 - merges in the animal details
 - creates a normalized measure of OL counts
 - transforms a long format version of data (kk.long)
 
+## 1.5. Details about this dataset
+
+
 
 ```{r, echo=F,message=FALSE, warning=FALSE}
-# Load libraries
-library(ggplot2)
-library(dplyr)
-library(plotrix)
-library(GGally)
-library(reshape2)
-
-# Load the data
-kk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", header=TRUE, sep=",")
-kk$idBysubroi = as.factor(kk$idBysubroi)
-
-
-# Merge animal details
-animal_details = read.csv("animal_details.csv")
-animal_details$Mouse.ID. = as.factor(animal_details$ID)
-colnames(animal_details)[9] = "idBysubroi"
-kk = merge(animal_details, kk, by = "idBysubroi")
-colnames(kk)[2] = "GROUP"
-
-
-# Merge group details
-group_details = read.csv("group_details.csv")
-names(group_details)[1] = "GROUP" # because for some reason it messes up
-kk = merge(group_details, kk, by="GROUP")
-
-replace = read.csv("replacements.csv")
-names(replace) = c("pre", "post") # because for some reason the names mess up
-
-# Rename the age groups
-kk$EXPT = as.factor(as.character(replace$post[match(kk$EXPT, replace$pre)]))
-
-# normalize the OL counts
-kk$OLmm2.norm = kk$OLmm2
-kk$OLmm2.norm = kk$OLmm2/(kk$Ch2mm2 + kk$Ch4mm2 - kk$OLmm2)
-
-# Rename all variable names of the channels
-names(kk)[15:20] = as.character(replace[1:6,2])
-
-attach(kk)
-
-# Transform rawkk to a long format
-kk.long = melt(kk, id.vars=names(kk[1:14]), variable.name = "CHANNEL", value.name="DENSITY")
-
+source("LoadAndProcess.R")
 
 ```
 
@@ -87,10 +47,8 @@ kk.long = melt(kk, id.vars=names(kk[1:14]), variable.name = "CHANNEL", value.nam
 - Summarize a new table where each obs is an animal with unweighted average density for whole brain 
 - Then plot so that each error bar reflects number of animals 
 
-
 ```{r, echo=F,message=FALSE, warning=FALSE}
 
-# 
 # # What is the mean count per brain, normalized to area?
 # channels.all = names(kk[15:20])
 
@@ -148,7 +106,7 @@ ggplot(kkl.collapseROI) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT) + 
 
 - positive numbers mean more counts in SHOCK than CONTEXT
 
-```{r, echo=F, fig.width = 2, fig.height = 4, message=FALSE, warning=FALSE}
+```{r, echo=F, fig.width = 4, fig.height = 2, message=FALSE, warning=FALSE}
 
 library(plyr)
 shock.induction = ddply(kk.long, .(CHANNEL, SUBROI, EXPT), transform, norm = scale(DENSITY))
@@ -160,22 +118,63 @@ ggplot(shock.induction %>% filter(CHANNEL=="H2BGFP")) +
   aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) + 
   stat_summary(fun.y = mean, geom="point") +
   stat_summary(fun.data = mean_se, geom="linerange") +
-  coord_flip() + geom_hline(yintercept = 0) + 
-  #facet_wrap(~EXPT) +
-  ggtitle("Relative shock induction in H2BGFP")
+  geom_hline(yintercept = 0) + 
+  # facet_wrap(~EXPT) +
+  # coord_flip
+  ggtitle("Relative shock induction in H2BGFP") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
   
 ggplot(shock.induction %>% filter(CHANNEL=="ArcIHC")) + 
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM) + 
+  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color = EXPT) + 
   stat_summary(fun.y = mean, geom="point") +
   stat_summary(fun.data = mean_se, geom="linerange") +
-  coord_flip() + geom_hline(yintercept = 0) + 
-  #facet_wrap(~EXPT) +
-  ggtitle("Relative shock induction in ArcIHC")
+  geom_hline(yintercept = 0) + 
+  # facet_wrap(~EXPT) + coord_flip() +
+  ggtitle("Relative shock induction in ArcIHC") + 
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+
+
+aa.induction = ddply(kk.long, .(CHANNEL, SUBROI, EXPT),
+                     transform, norm = scale(DENSITY))
+aa.induction = dcast(aa.induction, CHANNEL + SUBROI + EXPT ~ CONTEXT,
+                     value.var = "norm", fun.aggregate = mean)
+aa.induction$DIFFNORM = aa.induction$AA - aa.induction$AB
+
+ggplot(aa.induction %>% filter(CHANNEL == 'OL')) +
+  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) +
+  stat_summary(fun.y = mean, geom = "point") +
+  stat_summary(fun.data = mean_se, geom='linerange') +
+  geom_hline(yintercept = 0) +
+  ggtitle("Relative AA induction in OL") +
+  theme(axis.text.x = element_text(angle = 90, hjust=1))
+
+
+ggplot(aa.induction %>% filter(CHANNEL == 'NormOL')) +
+  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) +
+  stat_summary(fun.y = mean, geom = "point") +
+  stat_summary(fun.data = mean_se, geom='linerange') +
+  geom_hline(yintercept = 0) +
+  ggtitle("Relative AA induction in NormOL") +
+  theme(axis.text.x = element_text(angle = 90, hjust=1))
+
+ggplot(aa.induction %>% filter(CHANNEL == 'ArcIHC')) +
+  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) +
+  stat_summary(fun.y = mean, geom = "point") +
+  stat_summary(fun.data = mean_se, geom='linerange') +
+  geom_hline(yintercept = 0) +
+  ggtitle("Relative AA induction in ArcIHC") +
+  theme(axis.text.x = element_text(angle = 90, hjust=1))
+
+```
+
+
+## 3.1 Cross reference where H2BGFP and ArcIHC inductions are both positive
+
+```{r}
 
 
 
 ```
-
 
 
 # 4. How about overlap differences in AA vs AB?
