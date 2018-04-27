@@ -6,35 +6,7 @@ output:
   pdf_document: default
 ---
 
-# 1. Prep the analysis. 
-#### 1.1. Group Legends
-- SAB - shock AB
-- SAA - shock AA
-- CAB - context AB
-- CAA - context AA
-
-#### 1.2 Channel Legend
-- Ch 1 = DAPI (stained)
-- Ch 2 = GFP (experience 1)
-- Ch 3 = GFAP (stained)
-- Ch 4 = ARC (experience 2; stained)
-- OL = overlap GFP/Arc
-- OL.norm = overlap normalized to GFP/Arc
-
-#### 1.3 EXPT legends
-- AGE 10 = young mice
-- AGE 11 = old mice
-
-#### 1.4 Prepare the data
-- loads the libraries
-- loads the data (as kk)
-- merges in the animal details
-- creates a normalized measure of OL counts
-- transforms a long format version of data (kk.long)
-
-## 1.5. Details about this dataset
-
-
+# 1. Load KK's data
 
 ```{r, echo=F,message=FALSE, warning=FALSE}
 source("LoadAndProcess.R")
@@ -56,7 +28,6 @@ kkl.collapseROI = kk.long %>%
   group_by(CHANNEL, GROUP, VALENCE, CONTEXT, EXPT, ID) %>%
   summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
             ymin = mean_density-sem, ymax = mean_density+sem)
-
 kkl.collapseROI
 
 ggplot(kkl.collapseROI) + aes(GROUP, mean_density, fill=EXPT, color = EXPT) + 
@@ -78,6 +49,42 @@ ggplot(kkl.collapseROI) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT) + 
 
 ```
 
+
+
+# Find weighted average of brain areas
+```{r}
+kk.longwm = kk.long
+
+kk.longwm$DENSITY = kk.longwm$DENSITY/kk.longwm$AREAmm2
+
+kkl.collapseROI.wm = kk.longwm %>%
+  group_by(CHANNEL, GROUP, VALENCE, CONTEXT, EXPT, ID) %>%
+  summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
+            ymin = mean_density-sem, ymax = mean_density+sem)
+
+kkl.collapseROI.wm
+
+ggplot(kkl.collapseROI.wm) + aes(GROUP, mean_density, fill=EXPT, color = EXPT) + 
+  facet_wrap(~CHANNEL, scales="free") +
+  stat_summary(fun.y = mean, geom="point") +
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("Comparing densities per channel ~ group/age, where n = # animals ")
+
+ggplot(kkl.collapseROI.wm) + aes(VALENCE, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
+  stat_summary(fun.y = mean, geom="point") +
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("--> comparing context vs. shock")
+
+ggplot(kkl.collapseROI.wm) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
+  stat_summary(fun.y = mean, geom="point") +
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("--> comparing A/A vs. A/B")
+
+
+
+```
+
+
 ## 2.1 Interpretations of these graphs:
 1. DAPI counts are fairly similar between young/age groups, which suggests to me that the counts are somewhat normal, except between AA vs AB in the young animals, which I know are different batches. 
 2. Old animals consistently have higher densities, what are possible reasons? 
@@ -94,22 +101,13 @@ ggplot(kkl.collapseROI) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT) + 
 ---
 
 # 3. Which areas are induced by shock? 
-**Purpose.** Find the areas that have higher H2BGFP and ArcIHC densities in shock vs. context. 
 
-**Approach.** Split the groups into channels, age, context, then ROI. Then normalize the variables with the scale() function, and then recombine into new working dataframe. The normalization should only reflect the animals within the same valence groups, regardless of whether they were AA or AB. Then graph the standard deviations relative to the mean rather than the density to see the relative changes between context and shock. 
 
-- Step 1: Group all the context/shock animals and normalize them, then separate them by context/shock. 
-- Step 2: Melt CONTEXT to include context/shock columns. 
-- Step 3: Aggregate them into means and subtract shock - column. 
-- Step 4. Cast data back to CONTEXT with the "diff norms" 
-- Step 5. Graph SUBROI by "diffnorm" for only H2BGFP
+```{r, echo=F, fig.width = 8, fig.height = 4, message=FALSE, warning=FALSE}
 
-- positive numbers mean more counts in SHOCK than CONTEXT
+library(dplyr)
 
-```{r, echo=F, fig.width = 4, fig.height = 2, message=FALSE, warning=FALSE}
-
-library(plyr)
-shock.induction = ddply(kk.long, .(CHANNEL, BATCH), transform, norm = scale(DENSITY))
+shock.induction = ddply(kk.long, .(CHANNEL, BATCH), transform, norm = DENSITY)
 shock.induction = dcast(shock.induction, CHANNEL + SUBROI + EXPT + CONTEXT ~ VALENCE,
                         value.var = "norm", fun.aggregate = mean)
 colnames(shock.induction)[4] = "CONTEXT2"
@@ -120,149 +118,41 @@ channels.list = c("DAPI", "H2BGFP", "GFAP", "ArcIHC", "OL", "NormOL")
 
 for (i in channels.list) {
   title.paste = paste("Relative shock induction in", i)
-  
-  ggplot(shock.induction %>% filter(CHANNEL==i)) + 
-    aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) + 
-    stat_summary(fun.y = mean, geom="point") +
-    stat_summary(fun.data = mean_se, geom="linerange") +
-    geom_hline(yintercept = 0) + 
-    # facet_wrap(~EXPT) +
-    # coord_flip 
-    ggtitle(title.paste) + 
-    theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  print(
+    ggplot(shock.induction %>% filter(CHANNEL==i)) + 
+      aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) + 
+      stat_summary(fun.y = mean, geom="point") +
+      stat_summary(fun.data = mean_se, geom="linerange") +
+      geom_hline(yintercept = 0) + 
+      ggtitle(title.paste) + 
+      theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+      facet_wrap(~CONTEXT2, ncol=1) +
+      ylab("Shock - context")
+    
+  )
 }
 
 
-ggplot(shock.induction %>% filter(CHANNEL=="DAPI")) + 
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) + 
-  stat_summary(fun.y = mean, geom="point") +
-  stat_summary(fun.data = mean_se, geom="linerange") +
-  geom_hline(yintercept = 0) + 
-  facet_wrap(~CONTEXT2, ncol=1) +
-  # coord_flip() +
-  ggtitle("Relative shock induction in DAPI") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-ggplot(shock.induction %>% filter(CHANNEL=="H2BGFP")) + 
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) + 
-  stat_summary(fun.y = mean, geom="point") +
-  stat_summary(fun.data = mean_se, geom="linerange") +
-  geom_hline(yintercept = 0) + 
-  facet_wrap(~CONTEXT2, ncol=1) +
-  # coord_flip() +
-  ggtitle("Relative shock induction in H2BGFP") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-ggplot(shock.induction %>% filter(CHANNEL=="GFAP")) + 
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) + 
-  stat_summary(fun.y = mean, geom="point") +
-  stat_summary(fun.data = mean_se, geom="linerange") +
-  geom_hline(yintercept = 0) + 
-  facet_wrap(~CONTEXT2, ncol=1) +
-  # coord_flip() +
-  ggtitle("Relative shock induction in GFAP") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-
-ggplot(shock.induction %>% filter(CHANNEL=="OL")) + 
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) + 
-  stat_summary(fun.y = mean, geom="point") +
-  stat_summary(fun.data = mean_se, geom="linerange") +
-  geom_hline(yintercept = 0) + 
-  facet_wrap(~CONTEXT2, ncol=1) +
-  # coord_flip() +
-  ggtitle("Relative shock induction in OL") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-  
-ggplot(shock.induction %>% filter(CHANNEL=="ArcIHC")) + 
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color = EXPT) + 
-  stat_summary(fun.y = mean, geom="point") +
-  stat_summary(fun.data = mean_se, geom="linerange") +
-  geom_hline(yintercept = 0) + 
-  facet_wrap(~CONTEXT2, ncol=1) +
-  # coord_flip() +
-  ggtitle("Relative shock induction in ArcIHC") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-ggplot(shock.induction %>% filter(CHANNEL=="NormOL")) + 
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color = EXPT) + 
-  stat_summary(fun.y = mean, geom="point") +
-  stat_summary(fun.data = mean_se, geom="linerange") +
-  geom_hline(yintercept = 0) + 
-  facet_wrap(~CONTEXT2, ncol=1) +
-  # coord_flip() +
-  ggtitle("Relative shock induction in NormOL") + 
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
-
-
-
-aa.induction = ddply(kk.long, .(CHANNEL, SUBROI, BATCH),
-                     transform, norm = scale(DENSITY))
+aa.induction = ddply(kk.long, .(CHANNEL, SUBROI, BATCH), transform, norm = (DENSITY))
 aa.induction = dcast(aa.induction, CHANNEL + SUBROI + EXPT + VALENCE ~ CONTEXT,
                      value.var = "norm", fun.aggregate = mean)
 aa.induction$DIFFNORM = aa.induction$AA - aa.induction$AB
 
-
-ggplot(aa.induction %>% filter(CHANNEL == 'DAPI')) +
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) +
-  stat_summary(fun.y = mean, geom = "point") +
-  stat_summary(fun.data = mean_se, geom='linerange') +
-  geom_hline(yintercept = 0) +
-  ggtitle("Relative AA induction in DAPI") +
-  theme(axis.text.x = element_text(angle = 90, hjust=1)) +
-  facet_wrap(~VALENCE, ncol=1) 
-  # coord_flip() +
-
-ggplot(aa.induction %>% filter(CHANNEL == 'H2BGFP')) +
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) +
-  stat_summary(fun.y = mean, geom = "point") +
-  stat_summary(fun.data = mean_se, geom='linerange') +
-  geom_hline(yintercept = 0) +
-  ggtitle("Relative AA induction in H2BGFP") +
-  theme(axis.text.x = element_text(angle = 90, hjust=1))  +
-  facet_wrap(~VALENCE, ncol=1) 
-  # coord_flip() +
-
-ggplot(aa.induction %>% filter(CHANNEL == 'GFAP')) +
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) +
-  stat_summary(fun.y = mean, geom = "point") +
-  stat_summary(fun.data = mean_se, geom='linerange') +
-  geom_hline(yintercept = 0) +
-  ggtitle("Relative AA induction in GFAP") +
-  theme(axis.text.x = element_text(angle = 90, hjust=1))  +
-  facet_wrap(~VALENCE, ncol=1) 
-  # coord_flip() +
-
-ggplot(aa.induction %>% filter(CHANNEL == 'ArcIHC')) +
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) +
-  stat_summary(fun.y = mean, geom = "point") +
-  stat_summary(fun.data = mean_se, geom='linerange') +
-  geom_hline(yintercept = 0) +
-  ggtitle("Relative AA induction in ArcIHC") +
-  theme(axis.text.x = element_text(angle = 90, hjust=1)) +
-  facet_wrap(~VALENCE, ncol=1) 
-  # coord_flip() +
-
-ggplot(aa.induction %>% filter(CHANNEL == 'OL')) +
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) +
-  stat_summary(fun.y = mean, geom = "point") +
-  stat_summary(fun.data = mean_se, geom='linerange') +
-  geom_hline(yintercept = 0) +
-  ggtitle("Relative AA induction in OL") +
-  theme(axis.text.x = element_text(angle = 90, hjust=1))  +
-  facet_wrap(~VALENCE, ncol=1) 
-  # coord_flip() +
-
-
-ggplot(aa.induction %>% filter(CHANNEL == 'NormOL')) +
-  aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) +
-  stat_summary(fun.y = mean, geom = "point") +
-  stat_summary(fun.data = mean_se, geom='linerange') +
-  geom_hline(yintercept = 0) +
-  ggtitle("Relative AA induction in NormOL") +
-  theme(axis.text.x = element_text(angle = 90, hjust=1)) +
-  facet_wrap(~VALENCE, ncol=1) 
-  # coord_flip() +
+for (i in channels.list) {
+  title.paste = paste("Relative shock induction in", i)
+  print(
+    ggplot(aa.induction %>% filter(CHANNEL==i)) + 
+      aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) + 
+      stat_summary(fun.y = mean, geom="point") +
+      stat_summary(fun.data = mean_se, geom="linerange") +
+      geom_hline(yintercept = 0) + 
+      ggtitle(title.paste) + 
+      theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+      facet_wrap(~VALENCE, ncol=1) +
+      ylab("AA-AB (difference)")
+    
+  )
+}
 
 
 ```
@@ -300,31 +190,21 @@ ggplot(ol.induction %>% filter(CHANNEL=="GFAP")) +
 ```
 
 
-# check the straight up intensity levels
+# check the straight up intensity levels to find non-transgenics
 
-```{r, fig.width = 16, fig.height = 4}
+```{r, fig.width = 6, fig.height = 8}
 rx = theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-# intensity.list = c("Ch4.Mean.", "Ch3.Mean.")
-# 
-# kk$ID = as.factor(kk$ID)
-# 
-# for (x in intensity.list) {
-#   id = "ID"
-#   print(
-#     ggplot(raw) + aes_string(reorder(id, x), x) + geom_violin() +rx + facet_wrap(~Z.Level.)
-#   )
-# }
 raw$ID = as.factor(raw$ID)
 
 ggplot(raw) + aes(reorder(ID, Ch3.Mean.), Ch3.Mean.) + geom_boxplot() +rx + facet_wrap(~Z.Level.) +
   ggtitle("GFAP intensity")
 
 ggplot(raw) + aes(reorder(ID, Ch4.Mean.), Ch4.Mean.) + geom_boxplot() +rx + facet_wrap(~Z.Level.) +
-  ggtitle("ArcIHC intensity")
+  ggtitle("ArcIHC intensity") 
 
-ggplot(raw) + aes(reorder(ID, Ch2.Mean.), Ch2.Mean.) + geom_violin() +rx + facet_wrap(~Z.Level.) +
-  ggtitle("H2B intensity") + ylim(0,10000)
+ggplot(raw) + aes(reorder(ID, Ch2.Mean.), Ch2.Mean.) + geom_violin() +facet_wrap(~Z.Level.) +
+  ggtitle("H2B intensity") + coord_flip() + rx + ylim(0,10000)
 
 ggplot(raw) + aes(reorder(ID, Ch1.Mean.), Ch1.Mean.) + geom_violin() +rx + facet_wrap(~Z.Level.) +
   ggtitle("DAPI intensity")
@@ -333,43 +213,3 @@ ggplot(raw) + aes(reorder(ID, Ch1.Mean.), Ch1.Mean.) + geom_violin() +rx + facet
 
 
 
-
-
-# trash
-
-```{r, echo=F, message=FALSE, warning=FALSE}
-# for (i in channels.all) {
-#   print (
-#     ggplot(rawkk) + aes(factor(SUBROI), rawkk[i], fill=EXPT, color=EXPT) + 
-#       stat_summary(fun.y = mean, 
-#                    position="dodge",
-#                    geom="point") +
-#       stat_summary(fun.data = mean_se, 
-#                    size=.5,
-#                    position="dodge",
-#                    geom="linerange") +
-#       ggtitle(i) + coord_flip() 
-#   )
-# }
-
-
-kkl.collapseID = kk.long %>% 
-  group_by(CHANNEL, GROUP, EXPT, SUBROI, ID) %>%
-    summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
-            ymin = mean_density-sem, ymax = mean_density+sem)
-kkl.collapseID
-
-
-# ggplot(kkl.collapseID) + aes(SUBROI, mean_density, fill=EXPT, color=EXPT) +
-#   stat_summary(fun.y = mean, geom = "point") +
-#   stat_summary(fun.data = mean_se, size=0.5, geom="linerange") +
-#   coord_flip() + facet_wrap(GROUP~CHANNEL, ncol=3, scales="free")
-# 
-# 
-# ggplot(filter(kk.long, kk.long$CHANNEL=="OLmm2.norm")) + aes(SUBROI, DENSITY, fill=EXPT, color=EXPT) +
-#   stat_summary(fun.y = mean, geom = "point") +
-#   stat_summary(fun.data = mean_se, size=0.5, geom="linerange") +
-#   ggtitle("OLmm2 normalized to Arc and GFP") + coord_flip()
-
-
-```
