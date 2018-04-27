@@ -53,6 +53,7 @@ ggplot(kkl.collapseROI) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT) + 
 
 # Find weighted average of brain areas
 ```{r}
+
 kk.longwm = kk.long
 
 kk.longwm$DENSITY = kk.longwm$DENSITY/kk.longwm$AREAmm2
@@ -103,69 +104,109 @@ ggplot(kkl.collapseROI.wm) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT)
 # 3. Which areas are induced by shock? 
 
 
-```{r, echo=F, fig.width = 8, fig.height = 4, message=FALSE, warning=FALSE}
+```{r, echo=F, fig.width = 16, fig.height = 8, message=FALSE, warning=FALSE}
 
-library(dplyr)
+# library(dplyr)
+# 
+# shock.induction = ddply(kk.long, .(CHANNEL, BATCH), transform, norm = DENSITY)
+# shock.induction = dcast(shock.induction, CHANNEL + SUBROI + EXPT + CONTEXT ~ VALENCE,
+#                         value.var = "norm", fun.aggregate = mean)
+# colnames(shock.induction)[4] = "CONTEXT2"
+# shock.induction$DIFFNORM = shock.induction$SHOCK - shock.induction$CONTEXT
+# 
+# # make for loop for all
+# channels.list = c("DAPI", "H2BGFP", "GFAP", "ArcIHC", "OL", "NormOL")
+# 
+# for (i in channels.list) {
+#   title.paste = paste("Relative shock induction in", i)
+#   print(
+#     ggplot(shock.induction %>% filter(CHANNEL==i)) + 
+#       aes(reorder(SUBROI, DIFFNORM), DIFFNORM) + 
+#       stat_summary(fun.y = mean, geom="point") +
+#       stat_summary(fun.data = mean_se, geom="linerange") +
+#       geom_hline(yintercept = 0) + 
+#       ggtitle(title.paste) + 
+#       theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#       facet_wrap(~CONTEXT2, ncol=1) +
+#       ylab("Shock - context (difference)")
+#   )
+# }
+# 
+# 
+# aa.induction = ddply(kk.long, .(CHANNEL, SUBROI, BATCH), transform, norm = (DENSITY))
+# aa.induction = dcast(aa.induction, CHANNEL + SUBROI + EXPT + VALENCE + ID ~ CONTEXT,
+#                      value.var = "norm", fun.aggregate = mean)
+# aa.induction$DIFFNORM = aa.induction$AA - aa.induction$AB
+# 
+# for (i in channels.list) {
+#   title.paste = paste("Relative shock induction in", i)
+#   print(
+#     ggplot(aa.induction %>% filter(CHANNEL==i)) + 
+#       aes(reorder(SUBROI, DIFFNORM), DIFFNORM) + 
+#       stat_summary(fun.y = mean, geom="point") +
+#       stat_summary(fun.data = mean_se, geom="linerange") +
+#       geom_hline(yintercept = 0) + 
+#       ggtitle(title.paste) + 
+#       theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#       facet_wrap(~VALENCE, ncol=2) +
+#       ylab("AA-AB (difference)")
+#   )
+# }
+# 
+# 
 
-shock.induction = ddply(kk.long, .(CHANNEL, BATCH), transform, norm = DENSITY)
-shock.induction = dcast(shock.induction, CHANNEL + SUBROI + EXPT + CONTEXT ~ VALENCE,
-                        value.var = "norm", fun.aggregate = mean)
-colnames(shock.induction)[4] = "CONTEXT2"
-shock.induction$DIFFNORM = shock.induction$SHOCK - shock.induction$CONTEXT
+  
+  
 
-# make for loop for all
-channels.list = c("DAPI", "H2BGFP", "GFAP", "ArcIHC", "OL", "NormOL")
+```
 
-for (i in channels.list) {
-  title.paste = paste("Relative shock induction in", i)
-  print(
-    ggplot(shock.induction %>% filter(CHANNEL==i)) + 
-      aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) + 
+
+# Density comparisons
+
+```{r, fig.width=16, fig.height=16}
+
+ggplot(kk.long %>% filter(EXPT=="_YOUNG")) +
+  aes(x=reorder(SUBROI, DENSITY), y=DENSITY, color=CONTEXT) +
+  facet_wrap(CHANNEL~VALENCE, ncol=2, scales="free") +
       stat_summary(fun.y = mean, geom="point") +
       stat_summary(fun.data = mean_se, geom="linerange") +
-      geom_hline(yintercept = 0) + 
-      ggtitle(title.paste) + 
-      theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-      facet_wrap(~CONTEXT2, ncol=1) +
-      ylab("Shock - context")
-    
-  )
-}
+  rx +
+  ggtitle("YOUNG ANIMALS")
 
 
-aa.induction = ddply(kk.long, .(CHANNEL, SUBROI, BATCH), transform, norm = (DENSITY))
-aa.induction = dcast(aa.induction, CHANNEL + SUBROI + EXPT + VALENCE ~ CONTEXT,
-                     value.var = "norm", fun.aggregate = mean)
-aa.induction$DIFFNORM = aa.induction$AA - aa.induction$AB
-
-for (i in channels.list) {
-  title.paste = paste("Relative shock induction in", i)
-  print(
-    ggplot(aa.induction %>% filter(CHANNEL==i)) + 
-      aes(reorder(SUBROI, DIFFNORM), DIFFNORM, color=EXPT) + 
+ggplot(kk.long %>% filter(EXPT=="OLD")) +
+  aes(x=reorder(SUBROI, DENSITY), y=DENSITY, color=CONTEXT) +
+  facet_wrap(CHANNEL~VALENCE, ncol=2, scales="free") +
       stat_summary(fun.y = mean, geom="point") +
       stat_summary(fun.data = mean_se, geom="linerange") +
-      geom_hline(yintercept = 0) + 
-      ggtitle(title.paste) + 
-      theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
-      facet_wrap(~VALENCE, ncol=1) +
-      ylab("AA-AB (difference)")
-    
-  )
-}
+  rx +
+  ggtitle("OLD ANIMALS")
+
 
 
 ```
 
 
-## 3.1 Cross reference where H2BGFP and ArcIHC inductions are both positive
+# t-testing density comparisons
 
-```{r}
+```{r, fig.width=16, fig.height=10}
 
+# comparing AA/AB
 
+library(broom)
+t = kk.long %>%
+  group_by(EXPT, VALENCE, SUBROI, CHANNEL) %>%
+  do(tidy(t.test(data=., DENSITY~CONTEXT)))
+
+ggplot(t) +
+  aes(SUBROI, p.value, color=EXPT) +
+  geom_point() +
+  rx +
+  ylim(0, .05) + 
+  facet_wrap(VALENCE~CHANNEL, ncol=6) +
+  coord_flip()
 
 ```
-
 
 # 4. How about overlap differences in AA vs AB?
 - Positive numbers mean more overlap in AA than in AB group, vice versa. 
