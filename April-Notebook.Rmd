@@ -51,7 +51,7 @@ ggplot(kkl.collapseROI) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT) + 
 
 
 
-# Find weighted average of brain areas
+# Find weighted average of brain areas?
 ```{r}
 
 kk.longwm = kk.long
@@ -102,7 +102,6 @@ ggplot(kkl.collapseROI.wm) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT)
 ---
 
 # 3. Which areas are induced by shock? 
-
 
 ```{r, echo=F, fig.width = 16, fig.height = 8, message=FALSE, warning=FALSE}
 
@@ -161,9 +160,9 @@ ggplot(kkl.collapseROI.wm) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT)
 ```
 
 
-# Density comparisons
+# Density comparisons AA/AB
 
-```{r, fig.width=16, fig.height=16}
+```{r, fig.width=12, fig.height=12}
 
 ggplot(kk.long %>% filter(EXPT=="_YOUNG")) +
   aes(x=reorder(SUBROI, DENSITY), y=DENSITY, color=CONTEXT) +
@@ -186,6 +185,31 @@ ggplot(kk.long %>% filter(EXPT=="OLD")) +
 
 ```
 
+# Density comparisons between young/old
+
+```{r, fig.width=10, fig.height=10}
+
+ggplot(kk.long %>% filter(VALENCE=="SHOCK")) +
+  aes(x=reorder(SUBROI, DENSITY), y=DENSITY, color=EXPT) +
+  facet_wrap(CHANNEL~CONTEXT, ncol=2, scales="free") +
+      stat_summary(fun.y = mean, geom="point") +
+      stat_summary(fun.data = mean_se, geom="linerange") +
+  rx +
+  ggtitle("SHOCK ANIMALS")
+
+
+ggplot(kk.long %>% filter(VALENCE=="CONTEXT")) +
+  aes(x=reorder(SUBROI, DENSITY), y=DENSITY, color=EXPT) +
+  facet_wrap(CHANNEL~CONTEXT, ncol=2, scales="free") +
+      stat_summary(fun.y = mean, geom="point") +
+      stat_summary(fun.data = mean_se, geom="linerange") +
+  rx +
+  ggtitle("CONTEXT ANIMALS")
+
+
+```
+
+
 
 # t-testing density comparisons
 
@@ -194,6 +218,7 @@ ggplot(kk.long %>% filter(EXPT=="OLD")) +
 # comparing AA/AB
 
 library(broom)
+
 t = kk.long %>%
   group_by(EXPT, VALENCE, SUBROI, CHANNEL) %>%
   do(tidy(t.test(data=., DENSITY~CONTEXT)))
