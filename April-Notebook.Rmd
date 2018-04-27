@@ -50,42 +50,6 @@ ggplot(kkl.collapseROI) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT) + 
 ```
 
 
-
-# Find weighted average of brain areas?
-```{r}
-
-kk.longwm = kk.long
-
-kk.longwm$DENSITY = kk.longwm$DENSITY/kk.longwm$AREAmm2
-
-kkl.collapseROI.wm = kk.longwm %>%
-  group_by(CHANNEL, GROUP, VALENCE, CONTEXT, EXPT, ID) %>%
-  summarize(sem = std.error(DENSITY), mean_density = mean(DENSITY), N = length(DENSITY),
-            ymin = mean_density-sem, ymax = mean_density+sem)
-
-kkl.collapseROI.wm
-
-ggplot(kkl.collapseROI.wm) + aes(GROUP, mean_density, fill=EXPT, color = EXPT) + 
-  facet_wrap(~CHANNEL, scales="free") +
-  stat_summary(fun.y = mean, geom="point") +
-  stat_summary(fun.data = mean_se, geom="linerange") +
-  ggtitle("Comparing densities per channel ~ group/age, where n = # animals ")
-
-ggplot(kkl.collapseROI.wm) + aes(VALENCE, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
-  stat_summary(fun.y = mean, geom="point") +
-  stat_summary(fun.data = mean_se, geom="linerange") +
-  ggtitle("--> comparing context vs. shock")
-
-ggplot(kkl.collapseROI.wm) + aes(CONTEXT, mean_density, fill=EXPT, color = EXPT) + facet_wrap(~CHANNEL, scales="free") +
-  stat_summary(fun.y = mean, geom="point") +
-  stat_summary(fun.data = mean_se, geom="linerange") +
-  ggtitle("--> comparing A/A vs. A/B")
-
-
-
-```
-
-
 ## 2.1 Interpretations of these graphs:
 1. DAPI counts are fairly similar between young/age groups, which suggests to me that the counts are somewhat normal, except between AA vs AB in the young animals, which I know are different batches. 
 2. Old animals consistently have higher densities, what are possible reasons? 

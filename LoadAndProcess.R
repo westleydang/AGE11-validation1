@@ -50,6 +50,7 @@ kk = merge(kk, batch_details, by="GRAIN")
 
 attach(kk)
 
-# Transform rawkk to a long format
-kk.long = melt(kk, id.vars=names(kk[c(1:14,22)]), variable.name = "CHANNEL", value.name="DENSITY")
+# Transform kk to a long format
+kk.long = melt(kk, id.vars=names(kk[c(1:15,22)]), variable.name = "CHANNEL", value.name="DENSITY")
 
+rx = theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
