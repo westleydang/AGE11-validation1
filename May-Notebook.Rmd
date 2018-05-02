@@ -1,0 +1,148 @@
+---
+title: "May-Noteboook"
+output:
+  html_notebook: default
+  html_document: default
+---
+This is the notebook for the Month of May. 
+
+
+--
+
+
+# 1. Loading the data from KK
+```{r loading, }
+source("LoadAndProcess.R")
+head(kk)
+names(kk)
+
+head(kk.long)
+names(kk.long)
+```
+
+--
+
+# 2. Z-score densities within each (CHANNEL, SUBROI) across all animals
+
+```{r scaled, echo=FALSE, fig.width=8, fig.height=8}
+kl2 = kk.long
+kl2.scale = ddply(kl2, .(CHANNEL, SUBROI), transform, z = scale(DENSITY))
+
+ggplot(kl2.scale) + aes(SUBROI, GRAIN, fill = z) + 
+  geom_tile() + rx +
+  scale_fill_gradient2(low="black", mid = "white", high="red") +
+  facet_wrap(~CHANNEL, ncol=1) +
+  ggtitle("Densities, z-scored per ROI")
+
+```
+
+
+
+## 2.1 But what if we want to cluster them? 
+
+
+
+# 3. Density Correlation in each ROI, with hierarchical clustering
+
+
+```{r, fig.width=10, fig.height=10}
+library(corrplot)
+
+df2 = kl2.scale
+
+df2$GRAIN2 = paste(df2$CHANNEL, df2$SUBROI) 
+df2b = df2 %>% filter(CHANNEL=="OL" | CHANNEL=='H2BGFP')
+df3 = dcast(df2b, GRAIN ~ GRAIN2, value.var="z", fun.aggregate = mean)
+
+df3.cor = cor(df3[,2:73], df3[,74:145])
+corrplot(df3.cor, method="color", order="hclust")
+
+# df.corr1 = dcast(kl2.scale, VALENCE+SUBROI ~ CHANNEL, value.var="z", fun.aggregate = mean)
+# df.corr1 = df.corr1[,c(-1)]
+
+heat.roi = function(df, ch1, ch2) {
+  temp.df1 = df %>% filter(CHANNEL==ch1 | CHANNEL==ch2)
+  temp.df = dcast(temp.df1, GRAIN ~ GRAIN2, value.var="z", fun.aggregate = mean)
+  
+  cor1 = cor(temp.df[,2:73], temp.df[,74:145])
+  corrplot(cor1, method="color", order="hclust")
+}
+
+heat.roi(df2, "H2BGFP", "ArcIHC")
+
+df3[,74:145] %>% correlate() %>% network_plot(colors=c("red", "red","white","white","blue"))
+df3[,2:73] %>% correlate() %>% network_plot(colors=c("red", "red","white","white","blue"))
+
+
+```
+
+
+
+## Dendrogram
+
+```{r dendro}
+
+library(ggdendro)
+library(dplyr)
+library(reshape2)
+
+# cast by roi
+sc1 = dcast(kl2.scale, CHANNEL+GROUP+EXPT+ID~ SUBROI, value.var = "z", 
+            fun.aggregate=mean)
+
+# make matrix
+sc1.matrix = as.matrix(sc1[, -c(1:4)])
+
+# make ID the row names
+rownames(sc1.matrix) = sc1$ID
+
+# dendro
+dendro.sc1 = as.dendrogram(hclust(d = dist(x=sc1.matrix)))
+dendro.sc1.p = ggdendrogram(data = dendro.sc1, rotate=T)
+
+# print
+print(dendro.sc1.p)
+
+
+row.order = hclust(dist(sc1.matrix))$order
+col.order = hclust(dist(t(sc1.matrix)))$order
+sc1.new = sc1[row.order, col.order]
+
+sc1.molten = melt(as.matrix(sc1.new))
+ggplot(data = sc1.molten,
+       aes(x = Var1, y = Var2, fill = value)) + 
+    geom_raster() +
+    theme(axis.text.x = element_text(angle = 90, hjust = 1),
+          axis.text.y = element_blank()) + 
+    ggtitle("Clustered ggplot heatmap")
+
+
+
+```
+
+
+## Heatmap from Dendro
+```{r, fig.width = 12, fig.height = 12}
+library(RColorBrewer)
+
+sc1.long = melt(sc1, id=c(1:4))
+sc1.heatmap = ggplot(sc1.long) + aes(x = variable, y = as.factor(ID)) + 
+  geom_tile(aes(fill=value)) + rx +
+  scale_fill_gradient2(low="blue", mid = "white", high="red") +
+  #scale_fill_distiller(palette = "RdYlBu")
+  facet_wrap(~CHANNEL)
+  
+print(sc1.heatmap)
+
+
+grid.newpage()
+print(sc1.heatmap, vp = viewport(x = 0.4, y = 0.5, width = 0.8, height = 2.0))
+print(dendro.sc1.p, vp = viewport(x = 0.90, y = 0.5, width = 0.4, height = 2.06))
+
+
+```
+
+
+
+
+
