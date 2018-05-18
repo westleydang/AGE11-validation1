@@ -1,4 +1,7 @@
 # Loading the new data
+# New data was aggregated by KK
+# Also reflects only Z1
+
 library(reshape2)
 library(dplyr)
 

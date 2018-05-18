@@ -1,0 +1,81 @@
+---
+title: "May-Notebook3-validations"
+output: html_notebook
+---
+
+# Image validations
+
+## Look at variance per animal in each channel counts
+
+
+```{r}
+source("LoadLibs.R")
+source("LoadProcessZ1New.R")
+
+batch_details = read.csv("batch_details.csv")
+knew.molten = merge(knew.molten, batch_details, by="GRAIN")
+
+```
+
+```{r, fig.height=8, fig.width=10}
+
+knew.molten %>%
+  filter(UNITS=='counts') %>%
+  filter(NORMD=='yes') %>%
+  ggplot() + aes(as.factor(ID), value, color=EXPT) +
+  geom_violin() + 
+  facet_wrap(CHANNEL~BRIGHTNESS, ncol=4, scales="free") + rx +
+  ggtitle("Channel normalized counts comparison by animal")
+
+knew.molten %>%
+  filter(UNITS=='counts') %>%
+  filter(NORMD=='yes') %>%
+  ggplot() + aes(as.factor(ID), value, color=BATCH) +
+  stat_summary(fun.y = mean, geom="point") +
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  facet_wrap(CHANNEL~BRIGHTNESS, ncol=4, scales="free") + rx +
+  ggtitle("Channel normalized counts comparison by animal")
+
+```
+
+# how do the channel segmentations relate to each other
+look like they nearly always have the same ratio between different segments
+
+```{r}
+# transform 
+
+segment1 = dcast(knew.molten, ID+EXPT+GROUP+UNITS+NORMD+CHANNEL~BRIGHTNESS, 
+                 value.var = "value", fun.aggregate = mean)
+
+segment1 %>%
+  filter(UNITS=='counts') %>%
+  filter(NORMD=='yes') %>%
+  ggplot() + aes(hi, mid, color=EXPT) + 
+  geom_jitter() + geom_smooth(method="lm") +
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle("Hi vs Mid counts (normalized)")
+
+segment1 %>%
+  filter(UNITS=='counts') %>%
+  filter(NORMD=='yes') %>%
+  ggplot() + aes(hi, total, color=EXPT) + 
+  geom_jitter() + geom_smooth(method="lm") +
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle("Hi vs Total counts (normalized)")
+
+segment1 %>%
+  filter(UNITS=='counts') %>%
+  filter(NORMD=='yes') %>%
+  ggplot() + aes(hi, low, color=EXPT) + 
+  geom_jitter() + geom_smooth(method="lm") +
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle("Hi vs Low counts (normalized)")
+
+```
+
+
+```{r}
+
+```
+
+

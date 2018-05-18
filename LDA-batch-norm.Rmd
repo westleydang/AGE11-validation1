@@ -1,0 +1,41 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Eliminating the 'batch effect'
+Let's see if we can eliminate the batch effect while still getting some kind of effect overall. 
+Oh god please work
+
+
+```{r}
+
+# take the kk dataframe
+
+kk.long4 = kk.long2
+
+batch_details = read.csv("batch_details.csv")
+colnames(batch_details) = c("GRAIN", "BATCH")
+kk.long4 = merge(kk.long4, batch_details, by="GRAIN")
+
+# split, apply, combine the normalization
+kk.long5 = kk.long4 %>% group_by(BATCH) %>% mutate(DENSITY = scale(DENSITY))
+
+# let's just focus on dapi
+kk.long5 = kk.long5 %>% filter(CHANNEL == 'ArcIHC')
+
+kk.long5.dapi = dcast(kk.long5, BATCH + ID ~ roi_channel, value.var="DENSITY")
+
+long5.dapi = lda(formula = BATCH ~., data = kk.long5.dapi)
+
+long5.dapi.prop = long5.dapi$svd^2 / sum(long5.dapi$svd^2)
+
+long5.dapi.plda = predict(object = long5.dapi, newdata = kk.long5.dapi)
+
+long5.dapi.dataset = data.frame(BATCH = kk.long5.dapi$BATCH, lda = long5.dapi.plda$x)
+
+ggplot(long5.dapi.dataset) + aes(lda.LD1, lda.LD2, color=BATCH) + stat_ellipse() +
+  ggtitle("LDA-dapi normalized in each batch, features=subroi")
+
+
+```

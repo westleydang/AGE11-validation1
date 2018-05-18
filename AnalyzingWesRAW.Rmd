@@ -56,5 +56,48 @@ raw %>% group_by(Z.Level.) %>% dplyr::summarize(avg_intensity = mean(Ch3.Mean.),
 
 ggplot(raw) + aes(Z.Level., Ch3.Total.) + geom_violin() + geom_boxplot() 
 
+raw.z1 = raw %>% filter(Z.Level. == '1')
+raw.z2 = raw %>% filter(Z.Level. == '2')
+raw.z3 = raw %>% filter(Z.Level. == '3')
+
+write.csv(raw.z1, "wes_rawz1b.csv")
+
+qplot(data = raw.z2, x = Ch1.Mean., y = Ch1.Total.)
+
 ```
+
+
+
+```{r, fig.width=6}
+# melt the channels into one vector
+segment.rawmelt = melt(raw.z1[,c(1:2,8,17:20)], id.vars=colnames(raw.z1)[c(1:2,8)])
+
+# change the names so i can plot by BATCH
+segment.rawmelt = segment.rawmelt %>%
+  mutate(EXPT = ifelse(EXPT %in% c("AGE 10"), "_YOUNG", "OLD"))
+segment.rawmelt$GRAIN = paste(segment.rawmelt$EXPT, segment.rawmelt$GROUP)
+segment.rawmelt = merge(segment.rawmelt, batch_details, by='GRAIN')
+
+ggplot(segment.rawmelt) + aes(Mouse.ID., value, color = BATCH) +
+  facet_wrap(~variable) + rx +
+  stat_summary(fun.y = mean, geom="point") + 
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("Mean intensity values of signal per channel per animal")
+
+ggplot(segment.rawmelt) + aes(Mouse.ID., value, color = BATCH) +
+  facet_wrap(~variable, scales="free") + rx +
+  stat_summary(fun.y = mean, geom="point") + 
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("Mean intensity values of signal per channel per animal")
+
+ggplot(segment.rawmelt) + aes(BATCH, value, fill=BATCH) +
+  facet_wrap(~variable) + 
+  stat_summary(fun.y = mean, geom="bar") + 
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("Mean intensity values of signal per channel per BATCH")
+
+```
+
+
+
 

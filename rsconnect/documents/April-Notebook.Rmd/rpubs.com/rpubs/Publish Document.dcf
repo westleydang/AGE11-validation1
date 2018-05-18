@@ -1,0 +1,10 @@
+name: Publish Document
+title:
+username:
+account: rpubs
+server: rpubs.com
+hostUrl: rpubs.com
+appId: https://api.rpubs.com/api/v1/document/379580/abd278fbe56e4478a39a1b6f271ec803
+bundleId: https://api.rpubs.com/api/v1/document/379580/abd278fbe56e4478a39a1b6f271ec803
+url: http://rpubs.com/westleydang/379580
+when: 1524864644.4607

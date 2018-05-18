@@ -1,0 +1,448 @@
+---
+title: "May-Notebook2"
+output:
+  html_notebook: default
+  html_document: default
+---
+
+# LOADING NEW DATA
+
+```{r}
+source("LoadLibs.R")
+source("LoadProcessZ1New.R")
+attach(knew.molten)
+
+# creates a z score for each (CHANNEL, ROI, BRIGHTNESS, NORMD)
+# knew.molten2 = knew.molten %>%
+#   ddply(.(CHANNEL, SubROI_SubroiAGGR, NORMD, BRIGHTNESS), 
+#         transform, z = (scale(value))) %>%
+#   dcast(EXPT+ID+SubROI_SubroiAGGR+GROUP+GRAIN+AGE+NORMD+BRIGHTNES ~ CHANNEL,
+#         value.var="z", fun.aggregate=mean)
+
+animal_details = read.csv("animal_details.csv")
+freeze_details = read.csv("freeze_details.csv")
+group_details = read.csv("group_details.csv")
+colnames(group_details)[1] = "GROUP"
+
+# knew.molten2 = merge(knew.molten2, freeze_details,by="ID")
+# knew.molten2 = merge(knew.molten2, group_details, by="GROUP")
+
+
+```
+
+
+
+
+# UNWEIGHTED MEANS ACROSS GRAIN
+
+```{r}
+
+knew.molten %>%
+  filter(UNITS=='density') %>%
+  filter(BRIGHTNESS=='total') %>%
+  ggplot() + aes(GROUP, value, color=EXPT) +
+  stat_summary(fun.y=mean, geom="point") +
+  stat_summary(fun.data=mean_se, geom="linerange") +
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle("unweighted mean of densities, total cells")
+
+knew.molten %>%
+  filter(UNITS=='density') %>%
+  filter(BRIGHTNESS=='hi') %>%
+  ggplot() + aes(GROUP, value, color=EXPT) +
+  stat_summary(fun.y=mean, geom="point") +
+  stat_summary(fun.data=mean_se, geom="linerange") +
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle("unweighted mean of densities, hi cells")
+
+knew.molten %>%
+  filter(UNITS=='density') %>%
+  filter(BRIGHTNESS=='mid') %>%
+  ggplot() + aes(GROUP, value, color=EXPT) +
+  stat_summary(fun.y=mean, geom="point") +
+  stat_summary(fun.data=mean_se, geom="linerange") +
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle("unweighted mean of densities, mid cells")
+
+knew.molten %>%
+  filter(UNITS=='density') %>%
+  filter(BRIGHTNESS=='low') %>%
+  ggplot() + aes(GROUP, value, color=EXPT) +
+  stat_summary(fun.y=mean, geom="point") +
+  stat_summary(fun.data=mean_se, geom="linerange") +
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle("unweighted mean of densities, low cells")
+
+
+```
+
+
+# All heatmaps, grouped by subroi (then channel)
+```{r, fig.width=7.5, fig.height=5}
+
+knew.molten2 = knew.molten %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR, NORMD, BRIGHTNESS), 
+        transform, z = (scale(value)))
+
+ggplot(knew.molten2 %>% filter(NORMD=='yes' & BRIGHTNESS=='total')) +
+  aes(GROUP, SubROI_SubroiAGGR, z=z, fill=z) +
+  geom_tile() + scale_fill_gradient2(low='dark blue', mid='white', high='red') +
+  ggtitle("Normalized Counts, grouped by subroi then channel (TOTAL cells)") + rx +
+  facet_wrap(CHANNEL~EXPT, ncol=10) 
+
+
+ggplot(knew.molten2 %>% filter(NORMD=='yes' & BRIGHTNESS=='hi')) +
+  aes(GROUP, SubROI_SubroiAGGR, z=z, fill=z) +
+  geom_tile() + scale_fill_gradient2(low='dark blue', mid='white', high='red') +
+  ggtitle("Normalized Counts, grouped by subroi then channel (HI cells)") + rx +
+  facet_wrap(CHANNEL~EXPT, ncol=10) 
+
+
+```
+
+
+# Age differences
+```{r}
+knew.molten %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='mid') %>%
+  ggplot() + aes(GRAIN, AGE, color=EXPT) + 
+  stat_summary(fun.y=mean, geom='point') +
+  stat_summary(fun.data=mean_se, geom='linerange') +
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle("Comparing ages in each group") + rx
+
+```
+
+
+
+# EXPRESSON PER ROI (TOTAL CELLS)
+
+```{r, fig.width=7.5, fig.height=5}
+
+
+# TOTAL CELLS
+knew.molten %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='total') %>%
+  filter(CHANNEL=='OL') %>%
+  ggplot() + aes(GROUP, value, color=EXPT) + 
+  stat_summary(fun.y=mean, geom='point') +
+  stat_summary(fun.data=mean_se, geom='linerange') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free", ncol=11) +
+  ggtitle("Overlap total cells normalized") + rx
+
+knew.molten %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='total') %>%
+  filter(CHANNEL=='H2BGFP') %>%
+  ggplot() + aes(GROUP, value, color=EXPT) + 
+  stat_summary(fun.y=mean, geom='point') +
+  stat_summary(fun.data=mean_se, geom='linerange') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free", ncol=11) +
+  ggtitle("H2BGFP total cells normalized") + rx
+
+knew.molten %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='total') %>%
+  filter(CHANNEL=='ArcIHC') %>%
+  ggplot() + aes(GROUP, value, color=EXPT) + 
+  stat_summary(fun.y=mean, geom='point') +
+  stat_summary(fun.data=mean_se, geom='linerange') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free", ncol=11) +
+  ggtitle("ArcIHC total cells normalized") + rx
+
+
+```
+
+
+
+
+# Lin reg with freezing
+A. YOUNG SAA, total cells
+1. ARC
+2. GFP
+3. OL
+
+B. OLD SAA, total cells
+4. ARC
+5. GFP
+6. OL
+
+
+```{r, fig.width=7.5, fig.height=5}
+knew.lr = merge(knew.molten2, freeze_details, by="ID")
+
+# YOUNG SAA
+
+# ARC
+knew.lr %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='total') %>%
+  filter(CHANNEL=='ArcIHC') %>%
+  filter(GROUP=='SAA') %>%
+  filter(EXPT=='YOUNG') %>%
+  ggplot() + aes(FREEZE, z) + 
+  geom_point() + geom_smooth(method='lm') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free") +
+  ggtitle("Linear regression, ArcIHC Shock AA YOUNG only (total cells)")
+  
+# H2B
+knew.lr %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='total') %>%
+  filter(CHANNEL=='H2BGFP') %>%
+  filter(GROUP=='SAA') %>%
+  filter(EXPT=='YOUNG') %>%
+  ggplot() + aes(FREEZE, z) + 
+  geom_point() + geom_smooth(method='lm') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free") +
+  ggtitle("Linear regression, H2BGFP Shock AA YOUNG only (total cells)")
+  
+# OL
+knew.lr %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='total') %>%
+  filter(CHANNEL=='OL') %>%
+  filter(GROUP=='SAA') %>%
+  filter(EXPT=='YOUNG') %>%
+  ggplot() + aes(FREEZE, z) + 
+  geom_point() + geom_smooth(method='lm') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free") +
+  ggtitle("Linear regression, OL Shock AA YOUNG only (total cells)")
+
+## OLD SAA
+
+
+# ARC
+knew.lr %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='total') %>%
+  filter(CHANNEL=='ArcIHC') %>%
+  filter(GROUP=='SAA') %>%
+  filter(EXPT=='OLD') %>%
+  ggplot() + aes(FREEZE, z) + 
+  geom_point() + geom_smooth(method='lm') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free") +
+  ggtitle("Linear regression, ArcIHC Shock AA OLD only (total cells)")
+  
+# H2B
+knew.lr %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='total') %>%
+  filter(CHANNEL=='H2BGFP') %>%
+  filter(GROUP=='SAA') %>%
+  filter(EXPT=='OLD') %>%
+  ggplot() + aes(FREEZE, z) + 
+  geom_point() + geom_smooth(method='lm') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free") +
+  ggtitle("Linear regression, H2BGFP Shock AA OLD only (total cells)")
+  
+# OL
+knew.lr %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='total') %>%
+  filter(CHANNEL=='OL') %>%
+  filter(GROUP=='SAA') %>%
+  filter(EXPT=='OLD') %>%
+  ggplot() + aes(FREEZE, z) + 
+  geom_point() + geom_smooth(method='lm') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free") +
+  ggtitle("Linear regression, OL Shock AA OLD only (total cells)")
+
+  
+```
+
+
+
+# What if we only looked at HI cells instead of TOTAL?
+1. overlap hi
+2. gfp hi
+3. arc hi
+```{r, fig.width=7.5, fig.height=5}
+
+knew.molten %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='hi') %>%
+  filter(CHANNEL=='OL') %>%
+  ggplot() + aes(GROUP, value, color=EXPT) + 
+  stat_summary(fun.y=mean, geom='point') +
+  stat_summary(fun.data=mean_se, geom='linerange') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free", ncol=11) +
+  ggtitle("Overlap hi cells normalized") + rx
+
+
+knew.molten %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='hi') %>%
+  filter(CHANNEL=='H2BGFP') %>%
+  ggplot() + aes(GROUP, value, color=EXPT) + 
+  stat_summary(fun.y=mean, geom='point') +
+  stat_summary(fun.data=mean_se, geom='linerange') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free", ncol=11) +
+  ggtitle("H2BGFP HI cells normalized") + rx
+
+knew.molten %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='hi') %>%
+  filter(CHANNEL=='ArcIHC') %>%
+  ggplot() + aes(GROUP, value, color=EXPT) + 
+  stat_summary(fun.y=mean, geom='point') +
+  stat_summary(fun.data=mean_se, geom='linerange') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free", ncol=11) +
+  ggtitle("ArcIHC HI cells normalized") + rx
+
+
+```
+
+# Linear regressions for HI cells
+A. young SAA, hi cells
+1. arc
+2. h2bgfp
+3. OL
+```{r,fig.width=7.5, fig.height=5}
+# YOUNG SHOCK AA ONLY
+knew.lr %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='hi') %>%
+  filter(CHANNEL=='ArcIHC') %>%
+  filter(GROUP=='SAA') %>%
+  filter(EXPT=='YOUNG') %>%
+  ggplot() + aes(FREEZE, z) + 
+  geom_point() + geom_smooth(method='lm') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free") +
+  ggtitle("Linear regression, ArcIHC Shock AA young only (HI cells)")
+
+knew.lr %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='hi') %>%
+  filter(CHANNEL=='H2BGFP') %>%
+  filter(GROUP=='SAA') %>%
+  filter(EXPT=='YOUNG') %>%
+  ggplot() + aes(FREEZE, z) + 
+  geom_point() + geom_smooth(method='lm') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free") +
+  ggtitle("Linear regression, H2BGFP Shock AA young only (HI cells)")
+
+knew.lr %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='hi') %>%
+  filter(CHANNEL=='OL') %>%
+  filter(GROUP=='SAA') %>%
+  filter(EXPT=='YOUNG') %>%
+  ggplot() + aes(FREEZE, z) + 
+  geom_point() + geom_smooth(method='lm') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free") +
+  ggtitle("Linear regression, OL Shock AA young only (HI cells)")
+
+## OLD SHOCK AA
+knew.lr %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='hi') %>%
+  filter(CHANNEL=='ArcIHC') %>%
+  filter(GROUP=='SAA') %>%
+  filter(EXPT=='OLD') %>%
+  ggplot() + aes(FREEZE, z) + 
+  geom_point() + geom_smooth(method='lm') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free") +
+  ggtitle("Linear regression, ArcIHC Shock AA OLD only (HI cells)")
+
+knew.lr %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='hi') %>%
+  filter(CHANNEL=='H2BGFP') %>%
+  filter(GROUP=='SAA') %>%
+  filter(EXPT=='OLD') %>%
+  ggplot() + aes(FREEZE, z) + 
+  geom_point() + geom_smooth(method='lm') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free") +
+  ggtitle("Linear regression, H2BGFP Shock AA OLD only (HI cells)")
+
+knew.lr %>%
+  filter(NORMD=='yes') %>%
+  filter(BRIGHTNESS =='hi') %>%
+  filter(CHANNEL=='OL') %>%
+  filter(GROUP=='SAA') %>%
+  filter(EXPT=='OLD') %>%
+  ggplot() + aes(FREEZE, z) + 
+  geom_point() + geom_smooth(method='lm') +
+  facet_wrap(~SubROI_SubroiAGGR, scales="free") +
+  ggtitle("Linear regression, OL Shock AA OLD only (HI cells)")
+
+
+
+
+```
+
+
+
+
+# asdf1
+```{r}
+
+ggplot(knew.molten2) + 
+  aes(GROUP, SubROI_SubroiAGGR, fill = OL, z = OL) + 
+  geom_tile() + 
+  scale_fill_gradient2(low='blue', mid = 'white', high='red') + 
+  rx + coord_flip() +
+  facet_wrap(ncol=1, ~EXPT)+ 
+  ggtitle("Overlap mid bright")
+
+ggplot(knew.molten2) + 
+  aes(GROUP, SubROI_SubroiAGGR, fill = ArcIHC, z = ArcIHC) + 
+  geom_tile() + 
+  scale_fill_gradient2(low='white', high='blue') + 
+  rx + coord_flip() +
+  facet_wrap(ncol=1, ~EXPT) + 
+  ggtitle("ArcIHC mid bright")
+
+ggplot(knew.molten2) + 
+  aes(GROUP, SubROI_SubroiAGGR, fill = H2BGFP, z = H2BGFP) + 
+  geom_tile() + 
+  scale_fill_gradient2(low='white', high='blue') + 
+  rx + coord_flip() +
+  facet_wrap(ncol=1, ~EXPT)+ 
+  ggtitle("H2BGFP mid bright")
+
+ggplot(knew.molten2) + 
+  aes(GROUP, SubROI_SubroiAGGR, fill = H2BGFP, z = H2BGFP) + 
+  geom_tile() + 
+  scale_fill_gradient2(low='white', high='blue') + 
+  rx + coord_flip() +
+  facet_wrap(ncol=1, ~EXPT)+ 
+  ggtitle("H2BGFP mid bright")
+
+ggplot(knew.molten2) + 
+  aes(VALENCE, SubROI_SubroiAGGR, fill = H2BGFP, z = H2BGFP) + 
+  geom_tile() + 
+  scale_fill_gradient2(low='white', high='blue') + 
+  rx + coord_flip() +
+  facet_wrap(ncol=2, ~EXPT)+ 
+  ggtitle("H2BGFP mid bright")
+
+ggplot(knew.molten2) + 
+  aes(CONTEXT, SubROI_SubroiAGGR, fill = OL, z = OL) + 
+  geom_tile() + 
+  scale_fill_gradient2(low='white', high='blue') + 
+  rx + coord_flip() +
+  facet_wrap(ncol=2, ~EXPT)+ 
+  ggtitle("OL mid bright")
+
+ggplot(knew.molten2) + 
+  aes(CONTEXT, SubROI_SubroiAGGR, fill = ArcIHC, z = ArcIHC) + 
+  geom_tile() + 
+  scale_fill_gradient2(low='white', high='blue') + 
+  rx + coord_flip() +
+  facet_wrap(ncol=2, ~EXPT)+ 
+  ggtitle("ArcIHC mid bright")
+
+ggplot(knew.molten2) + 
+  aes(VALENCE, SubROI_SubroiAGGR, fill = ArcIHC, z = ArcIHC) + 
+  geom_tile() + 
+  scale_fill_gradient2(low='white', high='blue') + 
+  rx + coord_flip() +
+  # facet_wrap(ncol=2, ~EXPT)+ 
+  ggtitle("ArcIHC mid bright")
+
+
+```

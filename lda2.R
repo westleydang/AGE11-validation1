@@ -4,8 +4,6 @@ require(MASS)
 raw$grain = paste(raw$GROUP, raw$EXPT)
 lda.df = raw[c(17:28, 34:53, 55)]
 
-
-
 r = lda(formula = grain ~ .,
         data = lda.df)
 # r2 = lda(formula = grain ~ AREAmm2, DAPI, H2BGFP, GFAP, ArcIHC, OL, NormOL,
@@ -13,9 +11,7 @@ r = lda(formula = grain ~ .,
 prop = r$svd^2/sum(r$svd^2)
 
 plda = predict(object = r, newdata = lda.df)
-
 head(plda)
-
 dataset = data.frame(grain = raw$grain, 
                      subexpt = raw$SUBEXPT, # will facet by AA/AB
                      expt = raw$EXPT, 
@@ -23,9 +19,26 @@ dataset = data.frame(grain = raw$grain,
                      lda = plda$x)
 
 library(ggplot2)
+
+# compares young vs old
 ggplot(dataset) + 
   aes(lda.LD1, lda.LD2, color = grain) +
   #geom_point() + 
   xlim(-4,4) + ylim(-3,3) +
   stat_ellipse() + facet_wrap(~group)
+
+# compares AA vs AB
+ggplot(dataset) + 
+  aes(lda.LD1, lda.LD2, color = grain) +
+  #geom_point() + 
+  xlim(-4,4) + ylim(-3,3) +
+  stat_ellipse() + facet_wrap(~subexpt)
+
+
+# compares young vs old
+ggplot(dataset) + 
+  aes(lda.LD1, lda.LD2, color = grain) +
+  #geom_point() + 
+  xlim(-4,4) + ylim(-3,3) +
+  stat_ellipse() + facet_wrap(~expt)
 

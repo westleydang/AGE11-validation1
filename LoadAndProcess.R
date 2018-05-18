@@ -2,17 +2,18 @@
 # This script is sourced from downstream notebooks
 # as a common source point for processed data. 
 
-
-
 # Load libraries
 library(ggplot2)
 library(dplyr)
 library(plotrix)
-library(GGally)
 library(reshape2)
+library(broom)
+library(tidyr)
+library(plyr)
 
 # Load the data
-kk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", header=TRUE, sep=",")
+kk = read.csv(file="All AGE 10 series counts-03232018/Wes_SUBROI_CLN_STACKED.csv", 
+              header=TRUE, sep=",")
 kk$idBysubroi = as.factor(kk$idBysubroi)
 
 
@@ -44,7 +45,7 @@ kk$EXPT = as.factor(as.character(replace_details$post[match(kk$EXPT, replace_det
 
 # Merge BATCH details
 batch_details = read.csv("batch_details.csv")
-kk$GRAIN = paste(kk$GROUP, kk$EXPT)
+kk$GRAIN = paste(kk$EXPT, kk$GROUP)
 colnames(batch_details) = c("GRAIN", "BATCH")
 kk = merge(kk, batch_details, by="GRAIN")
 
@@ -53,4 +54,7 @@ attach(kk)
 # Transform kk to a long format
 kk.long = melt(kk, id.vars=names(kk[c(1:15,22)]), variable.name = "CHANNEL", value.name="DENSITY")
 
+
+# Other DEFINITIONS
 rx = theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+channel.list = c("DAPI", "H2BGFP", "ArcIHC", "GFAP", "OL", "NormOL")
