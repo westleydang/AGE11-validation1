@@ -13,7 +13,14 @@ source("LoadAndProcess.R")
 
 # load the data
 csvfiles = list.files(path = "All AGE 10 series counts-03232018/CombinedCounts/", full.names = TRUE)
-raw = do.call("rbind", lapply(csvfiles, FUN = function(file) read.csv(file, header = TRUE, sep = ",")))
+raw = do.call("rbind", lapply(csvfiles, FUN = function(file) {
+ data.frame(
+   read.csv(file, header = TRUE, sep = ","), 
+   round = basename(file)
+   )
+  }
+ )
+)
 
 # make the column names easier to read by removing the 'X.'
 colnames(raw) <- gsub('X.', '', colnames(raw), fixed = TRUE)
