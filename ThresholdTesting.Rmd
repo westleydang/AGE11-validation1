@@ -1,0 +1,78 @@
+---
+title: "ThresholdTesting"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r loading}
+
+
+# load the data
+threshold.files = list.files(path = "All AGE 10 series counts-03232018/testsample/", full.names = TRUE)
+thres = do.call("rbind", lapply(threshold.files, FUN = function(file) {
+ data.frame(
+   read.csv(file, header = TRUE, sep = ","), 
+   round = basename(file)
+   )
+  }
+ )
+)
+
+
+# make the column names easier to read by removing the 'X.'
+colnames(thres) <- gsub('X.', '', colnames(thres), fixed = TRUE)
+
+# Change Mouse ID to a factor, not a numeric
+thres$Mouse.ID. = as.factor(thres$Mouse.ID.)
+
+# Merge in animal details
+animal_details = read.csv("animal_details.csv")
+animal_details$Mouse.ID. = as.factor(animal_details$ID)
+thres = merge(animal_details, thres, by = "Mouse.ID.")
+
+# change everything else to numeric
+for (i in c(15:29, 33:53)) {
+  thres[,i] = as.numeric(as.character(thres[,i]))
+}
+
+# Convert time (hh:mm) to minutes 
+thres$DELTA.T = sapply(strsplit(as.character(thres$DELTA.T), ":"), function(x)
+{
+  x = as.numeric(x)
+  x[1] * 60 + x[2]
+}
+)
+
+
+
+```
+
+
+```{r z-level}
+library(dplyr)
+fileseq = sapply(as.character(thres$File.Name.), function(x) strsplit(x, "_")[[1]][1])
+fileseq = as.numeric(fileseq)
+thres$fseq = fileseq
+
+thres$Z.Level. = ((fileseq - 1 ) %% 3) + 1
+thres$Z.Level. = as.factor(thres$Z.Level.)
+
+```
+
+
+```{r}
+
+library(ggplot2)
+attach(thres)
+thres %>%
+  filter(File.Name.==thres$File.Name.[100]) %>%
+  ggplot() + aes(x = Ch4..m.0.5sd..1) + geom_histogram() +
+  facet_wrap(~round)
+
+
+
+```
+
