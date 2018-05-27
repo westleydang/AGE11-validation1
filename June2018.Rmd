@@ -1,0 +1,31 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# June 2018 AGE analysis
+
+The purpose of this notebook is to compile all of the analyses that I have done in the past few months into a centralized notebook, instead of having them exist in several different scripts and notebooks. In the process gathering code from different sources, I will also be moving those redundant scripts into a folder called 'deprecated' where they will archived. 
+
+
+## Loading the data
+
+*Sourcing the data*
+This script intakes the csv files of all the RAW data straight from Kiriana's macro. Then, from a list of files that should be excluded (on the basis of bad atlas alignment or bad images in general), these files are flagged as "to be excluded" from the imported dataset. After they have been excluded, we add back in the raw data of the files that have been revised (e.g., a file that has been excluded because of the bad atlas alignment was fixed and was then reanalyzed with the proper atlas section). Revised data and the non-excluded data were combined into a new dataframe, and animal details were then merged in. 
+
+*Output: *
+dataframes
+- raw0 = the raw data imported, then flagged with exclusions
+- ex = list of files that were flagged to be removed
+- rev = raw data of the files that were fixed
+- raw_revised = combination of revised data + non-excluded data
+- raw = same as raw_revised, just a simpler name for typing
+- animal_details = information about GROUP, AGE, DOB, etc. 
+
+
+```{r}
+source("LoadProcessRAW-May2018.R")
+
+```
+
+
