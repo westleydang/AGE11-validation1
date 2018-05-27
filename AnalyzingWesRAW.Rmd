@@ -12,7 +12,7 @@ source("LoadAndProcess.R")
 
 
 # load the data
-csvfiles = list.files(path = "All AGE 10 series counts-03232018/CombinedCounts/", full.names = TRUE)
+csvfiles = list.files(path = "All AGE 10 series counts-03232018/Counts10/", full.names = TRUE)
 raw = do.call("rbind", lapply(csvfiles, FUN = function(file) {
  data.frame(
    read.csv(file, header = TRUE, sep = ","), 
