@@ -1,0 +1,92 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+source("LoadAndProcess.R")
+
+
+# load the data
+csvfiles = list.files(path = "All AGE 10 series counts-03232018/Counts10/", full.names = TRUE)
+raw = do.call("rbind", lapply(csvfiles, FUN = function(file) {
+ data.frame(
+   read.csv(file, header = TRUE, sep = ","), 
+   round = basename(file)
+   )
+  }
+ )
+)
+
+# make the column names easier to read by removing the 'X.'
+colnames(raw) <- gsub('X.', '', colnames(raw), fixed = TRUE)
+
+# Change Mouse ID to a factor, not a numeric
+raw$Mouse.ID. = as.factor(raw$Mouse.ID.)
+
+# Merge in animal details
+animal_details = read.csv("animal_details.csv")
+animal_details$Mouse.ID. = as.factor(animal_details$ID)
+raw = merge(animal_details, raw, by = "Mouse.ID.")
+
+# change everything else to numeric
+for (i in c(15:29, 33:53)) {
+  raw[,i] = as.numeric(as.character(raw[,i]))
+}
+
+# Convert time (hh:mm) to minutes 
+raw$DELTA.T = sapply(strsplit(as.character(raw$DELTA.T), ":"), function(x)
+{
+  x = as.numeric(x)
+  x[1] * 60 + x[2]
+}
+)
+```
+
+# What do the Z levels tell us about the counts?
+1. Assign the z-levels and then check it with GFAP channel
+2. 
+```{r}
+source("SplitZLevels.R")
+
+```
+
+
+
+```{r, fig.width=6}
+# melt the channels into one vector
+segment.rawmelt = melt(raw.z1[,c(1:2,8,17:20)], id.vars=colnames(raw.z1)[c(1:2,8)])
+
+# change the names so i can plot by BATCH
+segment.rawmelt = segment.rawmelt %>%
+  mutate(EXPT = ifelse(EXPT %in% c("AGE 10"), "_YOUNG", "OLD"))
+segment.rawmelt$GRAIN = paste(segment.rawmelt$EXPT, segment.rawmelt$GROUP)
+segment.rawmelt = merge(segment.rawmelt, batch_details, by='GRAIN')
+
+ggplot(segment.rawmelt) + aes(Mouse.ID., value, color = BATCH) +
+  facet_wrap(~variable) + rx +
+  stat_summary(fun.y = mean, geom="point") + 
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("Mean intensity values of signal per channel per animal")
+
+ggplot(segment.rawmelt) + aes(Mouse.ID., value, color = BATCH) +
+  facet_wrap(~variable, scales="free") + rx +
+  stat_summary(fun.y = mean, geom="point") + 
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("Mean intensity values of signal per channel per animal")
+
+ggplot(segment.rawmelt) + aes(BATCH, value, fill=BATCH) +
+  facet_wrap(~variable) + 
+  stat_summary(fun.y = mean, geom="bar") + 
+  stat_summary(fun.data = mean_se, geom="linerange") +
+  ggtitle("Mean intensity values of signal per channel per BATCH")
+
+```
+
+
+
+
