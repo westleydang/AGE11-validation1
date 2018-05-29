@@ -2,8 +2,6 @@
 ## Will be adding in the new revision files here
 ## Also excluding the files
 ## Adapted from the original LoadProcessRAW.R
-library(stringr)
-library(ggplot2)
 
 # I. 
 # Load the original raw data
@@ -20,9 +18,6 @@ raw = do.call("rbind", lapply(csvfiles, FUN = function(file) {
 # make the column names easier to read by removing the 'X.'
 colnames(raw) <- gsub('X.', '', colnames(raw), fixed = TRUE)
 
-# Change Mouse ID to a factor, not a numeric
-# raw$Mouse.ID. = as.factor(raw$Mouse.ID.)
-
 
 
 # II. 
@@ -34,8 +29,6 @@ colnames(raw) <- gsub('X.', '', colnames(raw), fixed = TRUE)
 root_pat = "^[:digit:]{1,3}_[:digit:]{1,3}_[-]?.{1,3}_[:xdigit:]{1,4}_"
 
 # Load in the image metadata and clean it
-
-
 exfiles = list.files(path = "All AGE 10 series counts-03232018\\Rotations or Exclusions - From Manual Validations", full.names = TRUE)
 ex = do.call("rbind", lapply(exfiles, FUN = function(file) {
   data.frame(
@@ -54,6 +47,7 @@ ex$Width = mapply(clean_shellshit, string = ex$Width, pattern = pat_shell)
 ex$Height = mapply(clean_shellshit, string = ex$Height, pattern = pat_shell) 
 ex$Width = as.numeric(ex$Width)
 ex$Height = as.numeric(ex$Height)
+
 
 # Flag the excluded files in the RAW dataframe
 # 1) Work on each filename in the RAW
@@ -74,8 +68,6 @@ for (filename in levels(factor(raw$File.Name.)))
 
 # III. 
 # Source the revisions
-
-
 revfiles = list.files(path = "All AGE 10 series counts-03232018\\Revisions - From Manual Validations", full.names = TRUE)
 rev = do.call("rbind", lapply(revfiles, FUN = function(file) {
   data.frame(
@@ -88,21 +80,13 @@ raw_revised = raw[raw$is_excluded==F,]
 raw_revised = rbind(raw_revised, rev)
 
 
-
-
-
-# IV.
-# Merge in other details
-
-
-# Merge in animal details
-animal_details = read.csv("animal_details.csv", fileEncoding="UTF-8-BOM")
-animal_details$Mouse.ID. = as.factor(animal_details$ID)
+# IV. Merge in animal details
+animal_details = read.csv("animal_details3.csv", fileEncoding="UTF-8-BOM")
+animal_details$Mouse.ID. = as.factor(animal_details$Mouse.ID.)
 raw_revised = merge(animal_details, raw_revised, by = "Mouse.ID.")
 
-
 # change everything else to numeric
-for (i in c(15:29, 33:53)) {
+for (i in c(21:32, 37:57)) {
   raw_revised[,i] = as.numeric(as.character(raw_revised[,i]))
 }
 
@@ -114,18 +98,13 @@ raw_revised$DELTA.T = sapply(strsplit(as.character(raw_revised$DELTA.T), ":"), f
 }
 )
 
-# Make the Z levels accurate
+raw0 = raw
+raw = raw_revised
 
-# show the number of different values per ROI variables
-factor(levels(raw$System.)) # 17
-factor(levels(raw$Major.ROI.)) # 69
-factor(levels(raw$Sub.ROI)) # 82
+# Make the Z levels accurate
+source("SplitZLevels.R")
 
 # Useful plotting shortcuts
 rx = theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-raw0 = raw
-raw = raw_revised
 
-
-nrow(raw)
