@@ -196,10 +196,10 @@ heat_set(channels_total, raw$GROUP, raw$System.)
 ```{r}
 
 ggplot(raw, aes(GROUP, OL.Total.)) + geom_col() + facet_wrap(~raw$EXPT)
-ggplot(raw, aes(GROUP, Ch1.Mean.)) + geom_col() + facet_wrap(~raw$EXPT)
-ggplot(raw, aes(GROUP, Ch2.Mean.)) + geom_col() + facet_wrap(~raw$EXPT)
-ggplot(raw, aes(GROUP, Ch3.Mean.)) + geom_col() + facet_wrap(~raw$EXPT)
-ggplot(raw, aes(GROUP, Ch4.Mean.)) + geom_col() + facet_wrap(~raw$EXPT)
+ggplot(raw, aes(GROUP, Ch1.Total.)) + geom_col() + facet_wrap(~raw$EXPT)
+ggplot(raw, aes(GROUP, Ch2.Total.)) + geom_col() + facet_wrap(~raw$EXPT)
+ggplot(raw, aes(GROUP, Ch3.Total.)) + geom_col() + facet_wrap(~raw$EXPT)
+ggplot(raw, aes(GROUP, Ch4.Total.)) + geom_col() + facet_wrap(~raw$EXPT)
 
 ```
 
