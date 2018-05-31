@@ -1,11 +1,11 @@
 ---
 title: "Exclusions stats"
-output: html_document
+output: html_notebook
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
+# ```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = TRUE)
+# ```
 
 # Show the exclusions statistics
 
@@ -65,8 +65,11 @@ recovery.stats %>%
 
 
 
-# Import revisions files
-
+# Import revisions files then compare exclusion vs. recovery
+- For some reason something is up with 10-B R2, it has more recovered than excluded
+-- could it be because the exclusion file is the correct one? 
+- 10B R1, 10A R2 have very low recovered
+-- could it be because the recovery macro didn't detect the file name discrepancies?
 ```{r}
 # NOTE: REV FILES IMPORTED FROM THE RAW PROCESSING STEP
 # LOAD DATA WITH 'LOADPROCESSRAW-MAY2018.R' FIRST
@@ -78,6 +81,7 @@ recovery.stats = recovery.stats %>%
     round_stem = sub(" - .*", "", unique(round))
   )
 
+# create stem of rounds to merge recovery + exclusions
 revision.filestats = rev %>%
   group_by(round) %>%
   summarize(num.revised = length(unique(File.Name.))) %>%
@@ -85,16 +89,20 @@ revision.filestats = rev %>%
 
 recovery.stats = merge(recovery.stats, revision.filestats[,2:3], by="round_stem")
 
+
+# calculate the percent recovered
 recovery.stats = recovery.stats %>%
   mutate(pct.recovered.from.excluded = 100*num.revised/num.excluded,
          pct.recovered.from.total = 100*num.revised/total)
 
+# plot the recovery and exclusions
 recovery.stats %>%
   select(round_stem, pct.excluded, pct.recovered.from.total) %>%
   melt() %>%
   ggplot() + aes(round_stem, value, fill=variable) + 
   geom_bar(stat="identity", position="dodge") +
-  coord_flip()
+  coord_flip() + ylim(0,100) +
+  ggtitle("Percent data excluded vs. percent recovered")
 
 recovery.stats = recovery.stats %>%
   mutate(data.used = (100-pct.excluded)+(pct.recovered.from.total))
