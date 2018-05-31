@@ -89,11 +89,38 @@ revision.filestats = rev %>%
 
 recovery.stats = merge(recovery.stats, revision.filestats[,2:3], by="round_stem")
 
-
 # calculate the percent recovered
 recovery.stats = recovery.stats %>%
   mutate(pct.recovered.from.excluded = 100*num.revised/num.excluded,
          pct.recovered.from.total = 100*num.revised/total)
+
+recovery.stats = recovery.stats %>%
+  mutate(data.used = (100-pct.excluded)+(pct.recovered.from.total))
+
+
+```
+
+
+# Plotting the graphs
+
+
+```{r}
+
+# plot percent recovered vs total
+recovery.stats %>%
+  ggplot() + aes(round_stem, pct.recovered.from.total, label=round(pct.recovered.from.total,1)) + 
+  geom_bar(stat="identity") + 
+  coord_flip() + ylim(0,100) + 
+  ggtitle("Percent recovered from total dataset") +
+  geom_label()
+
+# plot percent recovered vs excluded
+recovery.stats %>%
+  ggplot() + aes(round_stem, pct.recovered.from.excluded, label=round(pct.recovered.from.excluded,1)) + 
+  geom_bar(stat="identity") + 
+  coord_flip() + ylim(0,100) + 
+  ggtitle("Percent recovered from the excluded subset") +
+  geom_label()
 
 # plot the recovery and exclusions
 recovery.stats %>%
@@ -104,10 +131,13 @@ recovery.stats %>%
   coord_flip() + ylim(0,100) +
   ggtitle("Percent data excluded vs. percent recovered")
 
-recovery.stats = recovery.stats %>%
-  mutate(data.used = (100-pct.excluded)+(pct.recovered.from.total))
 
-mean(recovery.stats$data.used)
+# plot the data actually used
+recovery.stats %>%
+  ggplot() + aes(round_stem, data.used, label=round(data.used,1)) + geom_bar(stat="identity") +
+  coord_flip() + ggtitle("Percent data used from each dataset segment") +
+  geom_label(aes())
 
 ```
+
 
