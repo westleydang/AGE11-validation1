@@ -29,7 +29,7 @@ colnames(raw) <- gsub('X.', '', colnames(raw), fixed = TRUE)
 root_pat = "^[:digit:]{1,3}_[:digit:]{1,3}_[-]?.{1,3}_[:xdigit:]{1,4}_"
 
 # Load in the image metadata and clean it
-exfiles = list.files(path = "All AGE 10 series counts-03232018\\Rotations or Exclusions - From Manual Validations", full.names = TRUE)
+exfiles = list.files(path = "All AGE 10 series counts-03232018/Rotations or Exclusions - From Manual Validations", full.names = TRUE)
 ex = do.call("rbind", lapply(exfiles, FUN = function(file) {
   data.frame(
     read.csv(file, header = TRUE, sep = ",", fileEncoding="UTF-8-BOM"), 
@@ -68,7 +68,7 @@ for (filename in levels(factor(raw$File.Name.)))
 
 # III. 
 # Source the revisions
-revfiles = list.files(path = "All AGE 10 series counts-03232018\\Revisions - From Manual Validations", full.names = TRUE)
+revfiles = list.files(path = "All AGE 10 series counts-03232018/Revisions - From Manual Validations", full.names = TRUE)
 rev = do.call("rbind", lapply(revfiles, FUN = function(file) {
   data.frame(
     read.csv(file, header = TRUE, sep = ",", fileEncoding="UTF-8-BOM"), 
