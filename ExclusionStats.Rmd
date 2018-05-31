@@ -1,0 +1,105 @@
+---
+title: "Exclusions stats"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Show the exclusions statistics
+
+## Load the data first
+- Load the exclusion files, then find how many of them were rotated
+
+```{r load_ex_files}
+
+# MAKE LIST OF FILES
+# READ EXCLUSION FILES
+excluded.files = ex
+
+# GSUB THE DIMENSIONS
+excluded.files$Width = gsub("\\?", "", excluded.files$Width)
+excluded.files$Height = gsub("\\?", "", excluded.files$Height)
+excluded.files$Width = gsub(" pixels", "", excluded.files$Width)
+excluded.files$Height = gsub(" pixels", "", excluded.files$Height)
+excluded.files$Width = as.numeric(excluded.files$Width)
+excluded.files$Height = as.numeric(excluded.files$Height)
+
+# NEW VARIABLE TO TELL IF ROTATED
+
+library(dplyr)
+library(plyr)
+excluded.files = excluded.files %>%
+  mutate(
+    rotated = ifelse(Width < Height, 1, 0)
+  )
+
+# AVERAGE TOTAL ROTATED
+mean(excluded.files$rotated)
+
+
+
+```
+
+## Plot how many excluded
+For some reason the 10-A groups had less exclusion...
+
+```{r plot, echo=FALSE}
+
+# PERCENT EXCLUDED PER ANALYSIS ROUND
+recovery.stats = excluded.files %>% 
+  group_by(round) %>%
+  summarize(num.excluded = length(rotated[rotated=='1']),
+            total = length(round),
+            pct.excluded = 100*mean(rotated))
+
+recovery.stats %>%
+  ggplot() + aes(round, pct.excluded) + geom_bar(stat="identity") + 
+  coord_flip() + ylim(0,100) + 
+  ggtitle("Percent excluded per dataset segment")
+
+
+
+```
+
+
+
+# Import revisions files
+
+```{r}
+# NOTE: REV FILES IMPORTED FROM THE RAW PROCESSING STEP
+# LOAD DATA WITH 'LOADPROCESSRAW-MAY2018.R' FIRST
+# Should have a dataframe called 'rev' now
+
+recovery.stats = recovery.stats %>%
+  group_by(round) %>%
+  mutate(
+    round_stem = sub(" - .*", "", unique(round))
+  )
+
+revision.filestats = rev %>%
+  group_by(round) %>%
+  summarize(num.revised = length(unique(File.Name.))) %>%
+  mutate(round_stem = sub(" - .*", "", unique(round)))
+
+recovery.stats = merge(recovery.stats, revision.filestats[,2:3], by="round_stem")
+
+recovery.stats = recovery.stats %>%
+  mutate(pct.recovered.from.excluded = 100*num.revised/num.excluded,
+         pct.recovered.from.total = 100*num.revised/total)
+
+recovery.stats %>%
+  select(round_stem, pct.excluded, pct.recovered.from.total) %>%
+  melt() %>%
+  ggplot() + aes(round_stem, value, fill=variable) + 
+  geom_bar(stat="identity", position="dodge") +
+  coord_flip()
+
+recovery.stats = recovery.stats %>%
+  mutate(data.used = (100-pct.excluded)+(pct.recovered.from.total))
+
+mean(recovery.stats$data.used)
+
+```
+
