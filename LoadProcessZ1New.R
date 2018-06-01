@@ -5,21 +5,21 @@
 library(reshape2)
 library(dplyr)
 
-knew = read.csv("SubroiAGGR.csv")
-colnames(knew)[1] = "ID"
+knew = read.csv("SubroiAGGR - NEW MAY29 WESMATLAB.csv")
 
-knew = knew %>% filter(! ID %in% c("8351", "8352"))
+# colnames(knew)[1] = "ID"
+# 
+# knew = knew %>% filter(! ID %in% c("8351", "8352")) # formerly MouseID
 
-# Melt the data
-knew.molten = melt(knew, id.vars = names(knew)[c(1:13, 34:39)])
+# Melt the data, all measurements in one variable
+names.not.measurements = as.character(read.csv("OUTPUT/names_not_measurements_KK.csv", header=T)$x)
+names.measurements = as.character(read.csv("OUTPUT/names_measurements_KK.csv", header=T)$x)
+knew.molten = melt(knew, id.vars = names.not.measurements)
 
-# Display the variable levels
+# Display the variable levels (all the measurements)
 levels(knew.molten$variable)
-
     
 # Combine all the transformations
-
-knew.molten = melt(knew, id.vars = names(knew)[c(1:13, 34:39)])
 units.counts = levels(knew.molten$variable)[c(1:20,41:60)]
 units.density = levels(knew.molten$variable)[c(21:40)]
 
