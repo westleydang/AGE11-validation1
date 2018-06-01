@@ -22,41 +22,78 @@ knew.molten2 = merge(knew.molten2, group_details, by="GROUP")
 
 
 # Calculate the weighted counts for whole brain
-
+## Point-range graphs
 ```{r}
-# weight by ROI area
-whole = knew.molten2 %>%
-  filter(UNITS == "density") %>%
-  filter(BRIGHTNESS == 'hi') %>%
-  group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, ROIAreapx),
-            unweighted = mean(value))
 
-whole %>%
-  ggplot() + aes(GROUP, weighted, color=EXPT) + 
-  stat_summary(fun.y = "mean", geom="point") + 
-  stat_summary(fun.data = "mean_se", geom="linerange") + 
-  facet_wrap(~CHANNEL, scales="free")
+
+# density, weight by ROI area, EACH BRIGHTNESS
+for (bright in c('low', 'mid', 'hi', 'total')) {
+  print(
+    knew.molten2 %>%
+      filter(UNITS == "density") %>%
+      filter(BRIGHTNESS == bright) %>%
+      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
+      summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+      ggplot() + aes(GROUP, weighted, color=EXPT) + 
+      stat_summary(fun.y = "mean", geom="point") + 
+      stat_summary(fun.data = "mean_se", geom="linerange") + 
+      facet_wrap(~CHANNEL, scales="free") + 
+      ggtitle(paste(c("Whole brain, weighted, density"),bright,"cells"))
+  )
+}
+
+# counts normalized, weight by ROI area, EACH BRIGHTNESS
+for (bright in c('low', 'mid', 'hi', 'total')) {
+  print(
+    knew.molten2 %>%
+      filter(UNITS == "counts") %>%
+      filter(NORMD == 'yes') %>%
+      filter(BRIGHTNESS == bright) %>%
+      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
+      summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+      ggplot() + aes(GROUP, weighted, color=EXPT) + 
+      stat_summary(fun.y = "mean", geom="point") + 
+      stat_summary(fun.data = "mean_se", geom="linerange") + 
+      facet_wrap(~CHANNEL, scales="free") + 
+      ggtitle(paste(c("Whole brain, weighted, counts"),bright,"cells"))
+  )
+}
+
 
 ```
 
-# Calculate for each system
+## Heatmaps
+```{r}
+
+knew.molten2 %>%
+  ddply(.(EXPT, GROUP, CHANNEL), transform, z = scale(value)) %>%
+  ggplot() + aes(GROUP, SubROI_SubroiAGGR, z=z, fill=z) +
+  geom_tile() + scale_fill_gradient2(low='dark blue', mid='white', high='red') +
+  facet_wrap(~CHANNEL)
+  
+
+```
+
+
+# Calculate weighted means for each system
 
 ```{r, fig.width=9.5, fig.height=5}
 
 # systems, weighted by ROI area
-systems = knew.molten2 %>%
-  filter(UNITS == "density") %>%
-  filter(BRIGHTNESS == 'hi') %>%
-  group_by(ID, System, GROUP, EXPT, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, ROIAreapx),
-            unweighted = mean(value))
-
-systems %>%
-  ggplot() + aes(GROUP, weighted, color=EXPT) + 
-  stat_summary(fun.y = "mean", geom="point") + 
-  stat_summary(fun.data = "mean_se", geom="linerange") + 
-  facet_wrap(CHANNEL~System, scales="free", ncol=16)
+for (bright in c('low', 'mid', 'hi', 'total')) {
+  print(
+    knew.molten2 %>%
+      filter(UNITS == "density") %>%
+      filter(BRIGHTNESS == bright) %>%
+      group_by(ID, System, GROUP, EXPT, CHANNEL, variable) %>%
+      summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+      ggplot() + aes(GROUP, weighted, color=EXPT) + 
+      stat_summary(fun.y = "mean", geom="point") + 
+      stat_summary(fun.data = "mean_se", geom="linerange") + 
+      facet_wrap(CHANNEL~System, scales="free", ncol=16) + 
+      ggtitle(paste(c("Whole brain, weighted, counts"),bright,"cells"))
+  )
+}
 
 # make heatmap
 systems.scaled = systems %>%

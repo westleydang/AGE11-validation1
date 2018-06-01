@@ -23,14 +23,13 @@ This script intakes the csv files of all the RAW data straight from Kiriana's ma
 - animal_details = information about GROUP, AGE, DOB, analysis rounds, etc. 
 
 
-```{r}
+```{r, echo=F}
 source("LoadLibs.R")
 source("LoadProcessRAW-May2018.R")
 
 ```
 
-
-
+From now on we're only going to be working with Z1 images
 ```{r, fig.height=8}
 attach(raw.z1)
 ggplot(raw.z1) + aes(GROUP, OL.Total., color=EXPT) + 
@@ -38,13 +37,7 @@ ggplot(raw.z1) + aes(GROUP, OL.Total., color=EXPT) +
   stat_summary(fun.data=mean_se, geom="linerange") +
   facet_wrap(~Sub.ROI., scales="free")
 
-
 ```
-
-
-
-
-
 
 
 
