@@ -19,18 +19,16 @@ attach(knew.molten)
 #   dcast(EXPT+ID+SubROI_SubroiAGGR+GROUP+GRAIN+AGE+NORMD+BRIGHTNES ~ CHANNEL,
 #         value.var="z", fun.aggregate=mean)
 
-animal_details = read.csv("animal_details.csv")
+
+# Merge more details
 freeze_details = read.csv("freeze_details.csv")
 group_details = read.csv("group_details.csv")
-colnames(group_details)[1] = "GROUP"
 
-# knew.molten2 = merge(knew.molten2, freeze_details,by="ID")
-# knew.molten2 = merge(knew.molten2, group_details, by="GROUP")
+knew.molten2 = merge(knew.molten, freeze_details, by="ID")
+knew.molten2 = merge(knew.molten2, group_details, by="GROUP")
 
 
 ```
-
-
 
 
 # UNWEIGHTED MEANS ACROSS GRAIN
