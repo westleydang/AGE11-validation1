@@ -1,0 +1,69 @@
+---
+title: "June 2018 post-matlab"
+output: html_notebook
+---
+
+# Post matlab stuff
+
+```{r}
+source("LoadLibs.R")
+source("LoadProcessZ1New.R")
+attach(knew.molten)
+
+# Merge more details
+freeze_details = read.csv("freeze_details.csv")
+group_details = read.csv("group_details.csv")
+
+knew.molten2 = merge(knew.molten, freeze_details, by="ID")
+knew.molten2 = merge(knew.molten2, group_details, by="GROUP")
+
+
+```
+
+
+# Calculate the weighted counts for whole brain
+
+```{r}
+# weight by ROI area
+whole = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'hi') %>%
+  group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, ROIAreapx),
+            unweighted = mean(value))
+
+whole %>%
+  ggplot() + aes(GROUP, weighted, color=EXPT) + 
+  stat_summary(fun.y = "mean", geom="point") + 
+  stat_summary(fun.data = "mean_se", geom="linerange") + 
+  facet_wrap(~CHANNEL, scales="free")
+
+```
+
+# Calculate for each system
+
+```{r, fig.width=9.5, fig.height=5}
+
+# systems, weighted by ROI area
+systems = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'hi') %>%
+  group_by(ID, System, GROUP, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, ROIAreapx),
+            unweighted = mean(value))
+
+systems %>%
+  ggplot() + aes(GROUP, weighted, color=EXPT) + 
+  stat_summary(fun.y = "mean", geom="point") + 
+  stat_summary(fun.data = "mean_se", geom="linerange") + 
+  facet_wrap(CHANNEL~System, scales="free", ncol=16)
+
+# make heatmap
+systems.scaled = systems %>%
+  ddply(.(ID, CHANNEL, System), 
+        transform, z = (scale(value)))
+
+
+```
+
+
