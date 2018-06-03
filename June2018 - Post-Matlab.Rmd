@@ -12,7 +12,8 @@ attach(knew.molten)
 
 # Merge more details
 freeze_details = read.csv("freeze_details.csv")
-group_details = read.csv("group_details.csv")
+group_details = read.csv("group_details.csv", header=T, encoding = "UTF-8-BOM")
+names(group_details)[1] = "GROUP"
 
 knew.molten2 = merge(knew.molten, freeze_details, by="ID")
 knew.molten2 = merge(knew.molten2, group_details, by="GROUP")
@@ -21,10 +22,13 @@ knew.molten2 = merge(knew.molten2, group_details, by="GROUP")
 ```
 
 
+
+
+
+
 # Calculate the weighted counts for whole brain
 ## Point-range graphs
 ```{r}
-
 
 # density, weight by ROI area, EACH BRIGHTNESS
 for (bright in c('low', 'mid', 'hi', 'total')) {
@@ -67,7 +71,7 @@ for (bright in c('low', 'mid', 'hi', 'total')) {
 
 knew.molten2 %>%
   ddply(.(EXPT, GROUP, CHANNEL), transform, z = scale(value)) %>%
-  ggplot() + aes(GROUP, SubROI_SubroiAGGR, z=z, fill=z) +
+  ggplot() + aes(GROUP, EXPT, z=z, fill=z) +
   geom_tile() + scale_fill_gradient2(low='dark blue', mid='white', high='red') +
   facet_wrap(~CHANNEL)
   
