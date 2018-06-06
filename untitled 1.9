@@ -1,0 +1,193 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Inter-regional correlations - HI CELLS YOUNG
+Conditions in this set of graphs:
+- 1. 'Hi' cells only
+- 2. Density measures
+- 3. Correlations use "complete.obs"
+- 4. Ordering by "hclust"
+
+```{r}
+source("LoadLibs.R")
+library(corrplot)
+knew.molten3 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'hi') %>%
+
+cluster.method = "hclust"
+use.method = "everything"
+
+```
+
+## Arc
+Major differences between all shock and context animals
+```{r}
+
+a = knew.molten3 %>%
+  filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL == 'ArcIHC') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all shock arc", mar=c(0,0,1,0))
+
+a = knew.molten3 %>%
+  filter(VALENCE == 'CONTEXT') %>%
+  filter(CHANNEL == 'ArcIHC') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all context arc", mar=c(0,0,1,0))
+
+```
+
+
+### All animals - compare each group
+
+```{r}
+
+a = knew.molten3 %>%
+  filter(CHANNEL == 'ArcIHC') %>%
+  filter(CONTEXT=='AA' & VALENCE =='SHOCK') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" shock AA", mar=c(0,0,1,0))
+
+
+a = knew.molten3 %>%
+  filter(CHANNEL == 'ArcIHC') %>%
+  filter(CONTEXT=='AB' & VALENCE =='SHOCK') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" shock AB", mar=c(0,0,1,0))
+
+
+a = knew.molten3 %>%
+  filter(CHANNEL == 'ArcIHC') %>%
+  filter(CONTEXT=='AA' & VALENCE =='CONTEXT') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" ctx AA", mar=c(0,0,1,0))
+
+
+a = knew.molten3 %>%
+  filter(CHANNEL == 'ArcIHC') %>%
+  filter(CONTEXT=='AB' & VALENCE =='SHOCK') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" ctx AB", mar=c(0,0,1,0))
+
+
+```
+
+## OL 
+
+```{r}
+
+a = knew.molten3 %>%
+  filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL == 'OL') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all shock arc", mar=c(0,0,1,0))
+
+a = knew.molten3 %>%
+  filter(VALENCE == 'CONTEXT') %>%
+  filter(CHANNEL == 'OL') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all context arc", mar=c(0,0,1,0))
+
+```
+
+### All animals - Compare each group
+
+
+```{r}
+
+a = knew.molten3 %>%
+  filter(CHANNEL == 'OL') %>%
+  filter(CONTEXT=='AA' & VALENCE =='SHOCK') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" shock AA", mar=c(0,0,1,0))
+
+
+a = knew.molten3 %>%
+  filter(CHANNEL == 'OL') %>%
+  filter(CONTEXT=='AB' & VALENCE =='SHOCK') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" shock AB", mar=c(0,0,1,0))
+
+
+a = knew.molten3 %>%
+  filter(CHANNEL == 'OL') %>%
+  filter(CONTEXT=='AA' & VALENCE =='CONTEXT') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" ctx AA", mar=c(0,0,1,0))
+
+
+a = knew.molten3 %>%
+  filter(CHANNEL == 'OL') %>%
+  filter(CONTEXT=='AB' & VALENCE =='SHOCK') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" ctx AB", mar=c(0,0,1,0))
+
+
+```
+
+
+
+

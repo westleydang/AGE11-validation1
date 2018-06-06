@@ -1,0 +1,151 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Systems Correlations
+We are only using density/total cells
+
+## H2BGFP
+### All shock animals
+```{r}
+# Takes in knew.molten2
+source("LoadLibs.R")
+knew.molten3 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total')
+  
+# shock young AA
+syscor = knew.molten3 %>%
+  filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='H2BGFP') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, System)) %>%
+  ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+cor1 = cor(syscor[,2:17], syscor[,2:17], use="complete.obs")
+corrplot(cor1, method="color", order="alphabet", tl.cex=0.5)
+
+```
+
+### All context
+```{r}
+syscor = knew.molten3 %>%
+  filter(VALENCE == 'CONTEXT') %>%
+  filter(CHANNEL=='H2BGFP') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, System)) %>%
+  ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+cor1 = cor(syscor[,2:17], syscor[,2:17], use="complete.obs")
+corrplot(cor1, method="color", order="alphabet", tl.cex=0.5)
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+## ArcIHC
+### Shock animals young AA
+```{r}
+syscor = knew.molten3 %>%
+  filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='ArcIHC') %>%
+  # filter(EXPT == "YOUNG") %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, System)) %>%
+  ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+cor1 = cor(syscor[,2:17], syscor[,2:17], use="complete.obs")
+corrplot(cor1, method="color", order="alphabet", tl.cex=0.5, 
+         title="YSAA ARC",mar=c(0,0,1,0))
+
+```
+
+### Shock animals old AA
+```{r}
+syscor = knew.molten3 %>%
+  filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='ArcIHC') %>%
+  filter(EXPT == "OLD") %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, System)) %>%
+  ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+cor1 = cor(syscor[,2:17], syscor[,2:17], use="complete.obs")
+corrplot(cor1, method="color", order="alphabet", tl.cex=0.5, 
+         title="OSAA ARC",mar=c(0,0,1,0))
+```
+### Context young animals
+```{r}
+syscor = knew.molten3 %>%
+  filter(VALENCE == 'CONTEXT') %>%
+  filter(CHANNEL=='ArcIHC') %>%
+  filter(EXPT == "YOUNG") %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, System)) %>%
+  ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+cor1 = cor(syscor[,2:17], syscor[,2:17], use="complete.obs")
+corrplot(cor1, method="color", order="alphabet", tl.cex=0.5, 
+         title="young context",mar=c(0,0,1,0))
+```
+
+### Context old animals
+```{r}
+syscor = knew.molten3 %>%
+  filter(VALENCE == 'CONTEXT') %>%
+  filter(CHANNEL=='ArcIHC') %>%
+  filter(EXPT == "OLD") %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, System)) %>%
+  ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+cor1 = cor(syscor[,2:17], syscor[,2:17], use="complete.obs")
+corrplot(cor1, method="color", order="alphabet", tl.cex=0.5, 
+         title="old context ARC",mar=c(0,0,1,0))
+```
+
+
+## Reactivation
+
+### All animals AA
+```{r}
+syscor = knew.molten3 %>%
+  # filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='OL') %>%
+  # filter(EXPT == "OLD") %>%
+  filter(CONTEXT=='AA') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, System)) %>%
+  ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+cor1 = cor(syscor[,2:17], syscor[,2:17], use="complete.obs")
+corrplot(cor1, method="color", order="hclust", tl.cex=0.5, 
+         title="OL all  AA",mar=c(0,0,1,0))
+```
+
+
+### All animals AB
+```{r}
+syscor = knew.molten3 %>%
+  # filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='OL') %>%
+  # filter(EXPT == "OLD") %>%
+  filter(CONTEXT=='AB') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, System)) %>%
+  ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+cor1 = cor(syscor[,2:17], syscor[,2:17], use="complete.obs")
+corrplot(cor1, method="color", order="hclust", tl.cex=0.5, 
+         title="OL all  AB",mar=c(0,0,1,0))
+```
