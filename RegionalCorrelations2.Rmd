@@ -20,6 +20,7 @@ knew.molten3 = knew.molten2 %>%
 
 cluster.method = "hclust"
 use.method = "complete.obs"
+corr.type = "kendall"
 
 ```
 
@@ -35,7 +36,7 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
 corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all shock arc", mar=c(0,0,1,0))
 
 a = knew.molten3 %>%
@@ -46,7 +47,7 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
 corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all context arc", mar=c(0,0,1,0))
 
 ```
@@ -64,8 +65,8 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
-corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" shock AA", mar=c(0,0,1,0))
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="shock AA", mar=c(0,0,1,0))
 
 
 a = knew.molten3 %>%
@@ -76,8 +77,8 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
-corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" shock AB", mar=c(0,0,1,0))
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="shock AB", mar=c(0,0,1,0))
 
 
 a = knew.molten3 %>%
@@ -88,8 +89,8 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
-corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" ctx AA", mar=c(0,0,1,0))
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="ctx AA", mar=c(0,0,1,0))
 
 
 a = knew.molten3 %>%
@@ -100,14 +101,66 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
-corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" ctx AB", mar=c(0,0,1,0))
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="ctx AB", mar=c(0,0,1,0))
 
 
 ```
 
 ## OL 
+### Old vs Young
 
+```{r}
+
+a = knew.molten3 %>%
+  filter(EXPT == 'YOUNG') %>%
+  filter(CHANNEL == 'OL') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all young", mar=c(0,0,1,0))
+
+a = knew.molten3 %>%
+  filter(EXPT == 'OLD') %>%
+  filter(CHANNEL == 'OL') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all old", mar=c(0,0,1,0))
+
+```
+
+```{r}
+
+a = knew.molten3 %>%
+  filter(CONTEXT == 'AA') %>%
+  filter(CHANNEL == 'OL') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all AA", mar=c(0,0,1,0))
+
+a = knew.molten3 %>%
+  filter(CONTEXT == 'AB') %>%
+  filter(CHANNEL == 'OL') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all AB", mar=c(0,0,1,0))
+
+```
 
 ```{r}
 
@@ -119,7 +172,7 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
 corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all shock ol", mar=c(0,0,1,0))
 
 a = knew.molten3 %>%
@@ -130,7 +183,7 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
 corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all context ol", mar=c(0,0,1,0))
 
 ```
@@ -148,7 +201,7 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
 corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" shock AA", mar=c(0,0,1,0))
 
 
@@ -160,7 +213,7 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
 corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" shock AB", mar=c(0,0,1,0))
 
 
@@ -172,7 +225,7 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
 corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" ctx AA", mar=c(0,0,1,0))
 
 
@@ -184,7 +237,7 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
 corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" ctx AB", mar=c(0,0,1,0))
 
 
@@ -203,7 +256,7 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
 corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all shock h2b", mar=c(0,0,1,0))
 
 a = knew.molten3 %>%
@@ -214,7 +267,7 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
 corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="all context h2b", mar=c(0,0,1,0))
 
 ```
@@ -231,8 +284,8 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
-corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" shock AA", mar=c(0,0,1,0))
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="shock AA", mar=c(0,0,1,0))
 
 
 a = knew.molten3 %>%
@@ -243,8 +296,8 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
-corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" shock AB", mar=c(0,0,1,0))
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="shock AB", mar=c(0,0,1,0))
 
 
 a = knew.molten3 %>%
@@ -255,8 +308,8 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
-corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" ctx AA", mar=c(0,0,1,0))
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="ctx AA", mar=c(0,0,1,0))
 
 
 a = knew.molten3 %>%
@@ -267,8 +320,8 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:75], a[,2:75], use=use.method)
-corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title=" ctx AB", mar=c(0,0,1,0))
+cor1 = cor(a[,2:75], a[,2:75], use=use.method, method=corr.type)
+corrplot(cor1, method="color", order=cluster.method, tl.cex=0.4, title="ctx AB", mar=c(0,0,1,0))
 
 
 ```
