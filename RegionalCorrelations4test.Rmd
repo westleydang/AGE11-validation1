@@ -1,0 +1,131 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Inter-regional correlations - TOTAL
+Conditions in this set of graphs:
+- 1. 'Total' cells only
+- 2. Density measures
+- 3. Correlations use "complete.obs"
+- 4. Ordering by "hclust"
+- 5. Removed bad freezers from young group
+
+```{r}
+source("LoadLibs.R")
+library(psych)
+knew.molten3 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total')
+
+cluster.method = "hclust"
+use.method = "complete.obs"
+corr.type = "pearson"
+
+```
+
+## Arc
+Major differences between all shock and context animals
+```{r, fig.width=4, fig.height=4}
+
+a = knew.molten3 %>%
+  filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL == 'ArcIHC') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+
+cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
+
+
+b = corr.test(a[,2:67])
+
+c = melt(b$r) %>% mutate(p = melt(b$p)$value)
+
+h.ord = hclust(dist(corr.test(a[,2:67])$r))$order
+c$Var1 = as.factor(c$Var1)[h.ord]
+c$Var2 = as.factor(c$Var2)[h.ord]
+
+ggplot(c) + aes(Var1, Var2) + rx +
+  # geom_tile(aes(fill=value)) +
+  geom_tile(aes(fill=value)) +
+  scale_fill_distiller(palette="RdBu") +
+  geom_tile(aes(alpha=p)) +
+  scale_alpha_continuous("p", range=c(.05,0))
+
+
+heatmap(b$r, symm=T, col=brewer.pal(11,"RdBu"), main="correlation -  all shock arc")
+heatmap(b$p, symm=T, col=rev(brewer.pal(9,"Greys")), main="p-value (Holm) - all shock arc")
+heatmap(b$p/b$r, symm=T, col=rev(brewer.pal(11,"RdBu")), main="p-value (Holm) - all shock arc")
+
+
+corrplot(b$p, method="color", order=cluster.method, tl.cex=0.4, title="p-values (Holm) - all shock arc", mar=c(0,0,1,0))
+
+
+```
+
+
+
+```{r}
+
+
+
+a = knew.molten3 %>%
+  filter(CHANNEL == 'ArcIHC') %>%
+  filter(EXPT=='YOUNG') %>%
+  filter(CONTEXT=='AA' & VALENCE =='SHOCK') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+  select_if(~!all(is.na(.)))
+
+b = corr.test(a[,2:67])
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="shock AA YOUNG", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+
+
+a = knew.molten3 %>%
+  filter(CHANNEL == 'ArcIHC') %>%
+  filter(EXPT=='OLD') %>%
+  filter(CONTEXT=='AA' & VALENCE =='SHOCK') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .)))  %>%
+  select_if(~!all(is.na(.)))
+
+b = corr.test(a[,2:dim(a)[2]])
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="shock AA OLD", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+
+```
+
+testing for loop
+```{r}
+for (expt in unique(knew.molten3$EXPT)) {
+  for (ctx in unique(knew.molten3$CONTEXT)) {
+    for (val in unique(knew.molten3$VALENCE)) {
+        a = knew.molten3 %>%
+          filter(CHANNEL == 'ArcIHC') %>%
+          filter(EXPT==expt) %>%
+          filter(CONTEXT==ctx & VALENCE ==val) %>%
+          filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+          mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+          ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+          dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
+          mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .)))  %>%
+          select_if(~!all(is.na(.)))
+        
+        b = corr.test(a[,2:dim(a)[2]])
+        corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, 
+                 title=paste(val, ctx, expt), 
+                 mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+    }
+  }
+}
+
+
+```
+
