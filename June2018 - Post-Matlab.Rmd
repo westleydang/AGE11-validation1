@@ -45,6 +45,7 @@ for (bright in c('low', 'mid', 'hi', 'total')) {
 }
 ```
 
+
 ## Linear regressions (total brain)
 ```{r}
 # shock lin reg
@@ -74,7 +75,7 @@ knew.molten2 %>%
 
 ```
 ## Stats for linear regressions
-```{r}
+```{r,fig.width=3, fig.height=6}
  # GET THE STATS
 tot.lr = knew.molten2 %>%
   filter(UNITS == "density") %>%
@@ -88,7 +89,7 @@ tot.lr = knew.molten2 %>%
   group_by(CHANNEL, EXPT) %>%
   do(tidy(lm(data=., formula = weighted ~ FREEZE))) %>%
   filter(!term=="(Intercept)") %>%
-  mutate(p.value = p.adjust(p.value, method="bonferroni", n=6)) %>%
+  mutate(p.value = p.adjust(p.value, method="BH", n=6)) %>%
   mutate(sig = 
            case_when(
              p.value < 0.0005 ~ "***",
@@ -112,7 +113,7 @@ tot.lr %>%
   # dcast(., CHANNEL+EXPT ~ System, value.var="sig") %>%
   ggplot() + aes(EXPT, CHANNEL, fill=p.value, label=sig) + geom_tile() +
   scale_fill_continuous(limits=c(0,0.05), low="dark red", high="white", na.value="white") + 
-  ggtitle("Signifiance scores from linear regression (Bonferroni corrected)") +
+  ggtitle("Signifiance scores from linear regression (Holm corrected)") +
   theme_light() + geom_label(label.size=0, color="white")
 ```
 
@@ -156,6 +157,30 @@ knew.molten2 %>%
 
 ```
 
+## ANOVA - Systems
+```{r}
+
+knew.molten3 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total')
+
+sys.stats = knew.molten3 %>%
+  group_by(CHANNEL, System) %>%
+  do(tidy(aov(data=.,value ~ EXPT * VALENCE * CONTEXT)))
+
+for (ch in unique(sys.stats$CHANNEL)) {
+  print(
+    sys.stats %>% filter(term=="EXPT:VALENCE:CONTEXT" & CHANNEL==ch) %>% 
+      mutate(p.value = p.adjust(p.value, method="BH", n = 16)) %>%
+      ggplot() + aes(reorder(System, p.value), p.value, label=round(p.value,3)) + geom_bar(stat="identity") +
+      coord_flip() + ylim(0,0.05) + geom_label() +
+      ggtitle(paste(ch, ", 3-way interaction (3-way ANOVA)")) +
+      ylab("p.value, Holm-Bonferroni corrected. n=16") +
+      xlab("System")
+  )
+}
+```
+
 ## Linear regressions 
 ```{r, fig.width=9, fig.height=1.5}
 # LINEAR REGRESSIONS SYSTEMS
@@ -194,7 +219,7 @@ sys.lr = knew.molten2 %>%
   group_by(CHANNEL, EXPT, System) %>%
   do(tidy(lm(data=., formula = weighted ~ FREEZE))) %>%
   filter(!term=="(Intercept)") %>%
-  mutate(p.value = p.adjust(p.value, method="bonferroni", n=108)) %>%
+  mutate(p.value = p.adjust(p.value, method="BH", n=96)) %>%
   mutate(sig = 
            case_when(
              p.value < 0.0005 ~ "***",
@@ -218,7 +243,7 @@ sys.lr %>%
   # dcast(., CHANNEL+EXPT ~ System, value.var="sig") %>%
   ggplot() + aes(EXPT, System, fill=p.value, label=sig) + geom_tile() + facet_wrap(~CHANNEL) + 
   scale_fill_continuous(limits=c(0,0.05), low="dark red", high="white", na.value="white") + 
-  ggtitle("Signifiance scores from linear regression (Bonferroni corrected)") +
+  ggtitle("Signifiance scores from linear regression (Holm corrected)") +
   theme_light() + geom_label(label.size=0, color="white")
 ```
 
@@ -247,6 +272,28 @@ for (ch in channel.list[c(2,3,5,6)]) {
 
 
 ```
+
+## ANOVA - Subregions
+```{r}
+reg.stats = knew.molten3 %>%
+  group_by(CHANNEL, SubROI_SubroiAGGR) %>%
+  do(tidy(aov(data=.,value ~ EXPT * VALENCE * CONTEXT)))
+
+for (ch in unique(sys.stats$CHANNEL)) {
+  print(
+    reg.stats %>% filter(term=="EXPT:VALENCE:CONTEXT" & CHANNEL==ch) %>% 
+      filter(p.value < 0.05) %>%
+      mutate(p.value = p.adjust(p.value, method="BH", n = 66)) %>%
+      ggplot() + aes(reorder(SubROI_SubroiAGGR, p.value), p.value, label=round(p.value,3)) + geom_bar(stat="identity") +
+      ylim(0,0.05) + geom_label() + rx +
+      ggtitle(paste(ch, ", 3-way interaction (3-way ANOVA)")) +
+      ylab("p.value, Holm-Bonferroni corrected. n=66 (regions)") +
+      xlab("Subregions")
+  )
+}
+
+```
+
 
 ## Heatmaps for ROI
 
@@ -295,7 +342,7 @@ for (ch in channel.list[c(2,3,5,6)]) {
 
 ## Stats for linear regressions ROI
 Looks like none of these subregions correlate with freezing... how is it possible that Systems do?
-```{r, fig.height = 5, fig.width=3}
+```{r, fig.height = 3, fig.width=5}
  # GET THE STATS
 roi.lr = knew.molten2 %>%
   filter(UNITS == "density") %>%
@@ -309,7 +356,7 @@ roi.lr = knew.molten2 %>%
   group_by(CHANNEL, EXPT, SubROI_SubroiAGGR) %>%
   do(tidy(lm(data=., formula = weighted ~ FREEZE))) %>%
   filter(!term=="(Intercept)") %>%
-  mutate(p.value = p.adjust(p.value, method="bonferroni", n=(77*3*2))) %>%
+  mutate(p.value = p.adjust(p.value, method="BH", n=(77*3*2))) %>%
   mutate(sig = 
            case_when(
              p.value < 0.0005 ~ "***",
@@ -331,9 +378,9 @@ roi.lr %>%
 roi.lr %>%
   filter(CHANNEL %in% c("H2BGFP","NormOL", "ArcIHC")) %>% # omit DAPI/OL/GFAP channels for clarity
   # dcast(., CHANNEL+EXPT ~ System, value.var="sig") %>%
-  ggplot() + aes(EXPT, SubROI_SubroiAGGR, fill=p.value, label=sig) + geom_tile() + facet_wrap(~CHANNEL) + 
+  ggplot() + aes(EXPT, SubROI_SubroiAGGR, fill=p.value, label=sig) + geom_tile() + facet_wrap(~CHANNEL, ncol=1) + 
   scale_fill_continuous(limits=c(0,0.05), low="dark red", high="white", na.value="white") + 
-  ggtitle("Signifiance scores from linear regression (Bonferroni corrected)") +
-  theme_light() + geom_label(label.size=0, color="white") 
+  ggtitle("Signifiance scores from linear regression (Holm corrected)") +
+  theme_light() + geom_label(label.size=0, color="white") + coord_flip() + rx
 ```
 
