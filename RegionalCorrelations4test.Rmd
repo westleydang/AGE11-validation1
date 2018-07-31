@@ -14,6 +14,7 @@ Conditions in this set of graphs:
 ```{r}
 source("LoadLibs.R")
 library(psych)
+library(corrplot)
 knew.molten3 = knew.molten2 %>%
   filter(UNITS == "density") %>%
   filter(BRIGHTNESS == 'total')
@@ -122,10 +123,55 @@ for (expt in unique(knew.molten3$EXPT)) {
         corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, 
                  title=paste(val, ctx, expt), 
                  mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+        c = melt(b$p) %>% 
+            group_by(Var1) %>%
+            mutate(pair1 = paste(Var1, Var2), p2 = value)
+        df.subgroup.age = merge(df.subgroup.age, c[,4:5], by="pair1")
     }
   }
 }
 
 
 ```
+
+comparing two matrices for p-values
+```{r}
+a = knew.molten3 %>%
+  filter(EXPT == 'YOUNG') %>%
+  filter(CHANNEL == 'OL') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) %>%
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+
+b = corr.test(a[,2:67])
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all young", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+
+c = knew.molten3 %>%
+  filter(EXPT == 'OLD') %>%
+  filter(CHANNEL == 'OL') %>%
+  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
+  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) %>%
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
+
+d = corr.test(c[,2:67])
+corrplot(d$r, method="color", order=cluster.method, tl.cex=0.4, title="all old", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+
+d1 = data.frame(d$p) %>% mutate_all(funs(ifelse(.<0.05, 1, 0))) 
+
+d2 = data.frame(b$p) %>% mutate_all(funs(ifelse(.<0.05, 1, 0))) 
+
+
+
+
+b2 = b
+b2$r[b2$p > 0.05] = 0
+corrplot(b2$p, method="color", order="alphabet", tl.cex=0.4, title="subset ctx AB", mar=c(0,0,1,0))
+
+heatmap(b$p, symm=T)
+```
+
 

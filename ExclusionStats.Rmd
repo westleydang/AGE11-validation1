@@ -3,16 +3,14 @@ title: "Exclusions stats"
 output: html_notebook
 ---
 
-# ```{r setup, include=FALSE}
-# knitr::opts_chunk$set(echo = TRUE)
-# ```
-
 # Show the exclusions statistics
 
 ## Load the data first
 - Load the exclusion files, then find how many of them were rotated
 
 ```{r load_ex_files}
+
+# Need to load the RAW data files processor first
 
 # MAKE LIST OF FILES
 # READ EXCLUSION FILES
@@ -57,7 +55,8 @@ recovery.stats = excluded.files %>%
 recovery.stats %>%
   ggplot() + aes(round, pct.excluded) + geom_bar(stat="identity") + 
   coord_flip() + ylim(0,100) + 
-  ggtitle("Percent excluded per dataset segment")
+  ggtitle("Percent excluded per dataset segment") + 
+  theme_minimal() 
 
 
 
@@ -104,7 +103,7 @@ recovery.stats = recovery.stats %>%
 # Plotting the graphs
 
 
-```{r}
+```{r, fig.height=3, fig.width=3}
 
 # plot percent recovered vs total
 recovery.stats %>%
@@ -112,7 +111,7 @@ recovery.stats %>%
   geom_bar(stat="identity") + 
   coord_flip() + ylim(0,100) + 
   ggtitle("Percent recovered from total dataset") +
-  geom_label()
+  geom_label() + theme_minimal()
 
 # plot percent recovered vs excluded
 recovery.stats %>%
@@ -120,7 +119,7 @@ recovery.stats %>%
   geom_bar(stat="identity") + 
   coord_flip() + ylim(0,100) + 
   ggtitle("Percent recovered from the excluded subset") +
-  geom_label()
+  geom_label() + theme_minimal()
 
 # plot the recovery and exclusions
 recovery.stats %>%
@@ -129,14 +128,17 @@ recovery.stats %>%
   ggplot() + aes(round_stem, value, fill=variable) + 
   geom_bar(stat="identity", position="dodge") +
   coord_flip() + ylim(0,100) +
-  ggtitle("Percent data excluded vs. percent recovered")
+  ggtitle("Percent data excluded vs. percent recovered") +
+  xlab("Data analysis segment") + ylab("Percent data excluded/revised") +
+  theme_minimal()
 
 
 # plot the data actually used
 recovery.stats %>%
-  ggplot() + aes(round_stem, data.used, label=round(data.used,1)) + geom_bar(stat="identity") +
+  ggplot() + aes(round_stem, data.used, label=round(data.used,1), fill=data.used) + geom_bar(stat="identity") +
   coord_flip() + ggtitle("Percent data used from each dataset segment") +
-  geom_label(aes())
+  theme_minimal() + 
+  xlab("Data analysis segment") + ylab("Percent data used in the end")
 
 ```
 

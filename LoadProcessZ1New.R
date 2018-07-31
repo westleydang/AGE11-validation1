@@ -48,6 +48,7 @@ knew.molten = knew.molten %>%
              variable %in% brightness.total ~ "total"
            ))
 
+# -- CHANNELS 
 chan1 = levels(knew.molten$variable)[grep("Ch1", levels(knew.molten$variable))]
 chan2 = levels(knew.molten$variable)[grep("Ch2", levels(knew.molten$variable))]
 chan3 = levels(knew.molten$variable)[grep("Ch3", levels(knew.molten$variable))]
@@ -88,7 +89,7 @@ channel.list = c("DAPI", "H2BGFP", "ArcIHC", "GFAP", "OL", "NormOL")
 # --- EXCLUDE SubROI with low representation across all mice
 
 pop.means = read.csv("SubroiPopMEANS - jun 3.csv")
-exclude.low.pop.means = pop.means$SubROI[pop.means$CountPerROI<0.5*max(pop.means$CountPerROI)]
+exclude.low.pop.means = pop.means$SubROI[pop.means$CountPerROI<0.8*max(pop.means$CountPerROI)]
 
 knew = knew[!(knew$SubROI_SubroiAGGR %in% exclude.low.pop.means),]
 knew.molten= knew.molten[!(knew.molten$SubROI_SubroiAGGR %in% exclude.low.pop.means),]

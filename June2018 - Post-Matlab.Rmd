@@ -46,6 +46,40 @@ for (bright in c('low', 'mid', 'hi', 'total')) {
 ```
 
 
+## ANOVA
+
+```{r}
+
+knew.molten3 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total')
+
+tot.stats = knew.molten3 %>%
+  group_by(CHANNEL) %>%
+  do(tidy(aov(data=.,value ~ EXPT * VALENCE * CONTEXT)))
+
+
+
+  for (ch in unique(tot.stats$CHANNEL)) {
+    print(
+      tot.stats %>% 
+        filter(CHANNEL==ch) %>% 
+        filter(!(term=='Residuals')) %>%
+        ggplot() + aes(reorder(CHANNEL, p.value), -log10(p.value), label=p.value, fill=CHANNEL) + 
+        geom_bar(stat="identity") +
+        coord_flip() + theme_minimal() + rx +
+        ggtitle(paste(ch, ",", "(3-way ANOVA)")) +
+        ylab("p-value 10^-x") +
+        xlab("System") + 
+        facet_wrap(~term, ncol=1) +
+        geom_hline(yintercept = 2)
+    )
+  }
+
+
+```
+
+
 ## Linear regressions (total brain)
 ```{r}
 # shock lin reg
@@ -164,25 +198,43 @@ knew.molten3 = knew.molten2 %>%
   filter(UNITS == "density") %>%
   filter(BRIGHTNESS == 'total')
 
+# if we did a 4-way ANOVA
+sys.stats = knew.molten3 %>%
+  group_by(CHANNEL) %>%
+  do(tidy(aov(data=.,value ~ System * EXPT * VALENCE * CONTEXT)))
+
 sys.stats = knew.molten3 %>%
   group_by(CHANNEL, System) %>%
   do(tidy(aov(data=.,value ~ EXPT * VALENCE * CONTEXT)))
+summary(sys.stats$p.value)
 
-for (ch in unique(sys.stats$CHANNEL)) {
-  print(
-    sys.stats %>% filter(term=="EXPT:VALENCE:CONTEXT" & CHANNEL==ch) %>% 
-      mutate(p.value = p.adjust(p.value, method="BH", n = 16)) %>%
-      ggplot() + aes(reorder(System, p.value), p.value, label=round(p.value,3)) + geom_bar(stat="identity") +
-      coord_flip() + ylim(0,0.05) + geom_label() +
-      ggtitle(paste(ch, ", 3-way interaction (3-way ANOVA)")) +
-      ylab("p.value, Holm-Bonferroni corrected. n=16") +
-      xlab("System")
-  )
+for (tm in unique(sys.stats$term)) {
+  for (ch in unique(sys.stats$CHANNEL)) {
+    print(
+      sys.stats %>% 
+        filter(term==tm & CHANNEL==ch) %>% 
+        filter(!(term=='Residuals')) %>%
+        filter(CHANNEL==ch) %>%
+        mutate(p.value = p.adjust(p.value, method="BH", n = 16)) %>%
+        ggplot() + aes(reorder(System, p.value), -log10(p.value), label=p.value, fill=System) + 
+        geom_bar(stat="identity") +
+        coord_flip() + theme_light() + rx +
+        ggtitle(paste(ch, ",", tm, "(3-way ANOVA)")) +
+        ylab("p-value 10^-x, Benjamini-Hochberg post-hoc for n=16 systems") +
+        xlab("System") +
+        facet_wrap(~term, ncol=3, scales="free") +
+        geom_hline(yintercept = 2)
+    )
+  }
 }
+
+
+
 ```
 
 ## Linear regressions 
 ```{r, fig.width=9, fig.height=1.5}
+
 # LINEAR REGRESSIONS SYSTEMS
 for (ch in channel.list[c(2,3,5,6)]) {
   print(
@@ -212,21 +264,19 @@ sys.lr = knew.molten2 %>%
   filter(BRIGHTNESS == 'total') %>%
   filter(VALENCE == 'SHOCK') %>%
   # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
-  
   group_by(CHANNEL, EXPT, GROUP, ID, FREEZE, System) %>%
   summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
   
   group_by(CHANNEL, EXPT, System) %>%
   do(tidy(lm(data=., formula = weighted ~ FREEZE))) %>%
   filter(!term=="(Intercept)") %>%
-  mutate(p.value = p.adjust(p.value, method="BH", n=96)) %>%
+  mutate(p.value = p.adjust(p.value, method="BH", n=16)) %>%
   mutate(sig = 
            case_when(
              p.value < 0.0005 ~ "***",
              p.value < 0.005 ~ "**", 
              p.value < 0.05 ~ "*"
            ))
-
 
 # positive or negative
 sys.lr %>%
@@ -243,8 +293,54 @@ sys.lr %>%
   # dcast(., CHANNEL+EXPT ~ System, value.var="sig") %>%
   ggplot() + aes(EXPT, System, fill=p.value, label=sig) + geom_tile() + facet_wrap(~CHANNEL) + 
   scale_fill_continuous(limits=c(0,0.05), low="dark red", high="white", na.value="white") + 
-  ggtitle("Signifiance scores from linear regression (Holm corrected)") +
+  ggtitle("Signifiance scores from linear regression (FDR corrected)") +
   theme_light() + geom_label(label.size=0, color="white")
+```
+
+## Stats 2 (interactions)
+```{r}
+sys.lr2 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
+  
+  group_by(CHANNEL, EXPT, GROUP, ID, FREEZE, System) %>%
+  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  
+  group_by(CHANNEL) %>%
+  do(tidy(lm(data=., weighted ~ FREEZE * EXPT))) %>%
+  filter(!term=="Residuals") %>%
+  # mutate(p.value = p.adjust(p.value, method="BH", n=16)) %>%
+  mutate(sig = 
+           case_when(
+             p.value < 0.0005 ~ "***",
+             p.value < 0.005 ~ "**", 
+             p.value < 0.05 ~ "*"
+           ))
+
+sys.lr2 %>%
+  filter(term=='FREEZE:EXPTYOUNG') %>%
+  ggplot() + aes(reorder(CHANNEL, p.value), -log10(p.value), fill=CHANNEL) + 
+  geom_bar(stat="identity") + coord_flip() + theme_minimal() +
+  geom_hline(yintercept=2) +
+  ggtitle("(Activity ~ Freeze):AGE") +
+  xlab('channels')
+
+knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  filter(!CHANNEL=='DAPI') %>%
+  group_by(CHANNEL, EXPT, GROUP, ID, FREEZE, System) %>%
+  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  ggplot() + aes(FREEZE, weighted, color=EXPT) +
+  # geom_point() +
+  geom_smooth(method="lm", fullrange=T, aes(group=EXPT)) +
+  facet_wrap(~CHANNEL, scales="free") + theme_minimal() +
+  ggtitle("Regressions of cell density vs. freezing") +
+  ylab("Activated cell densities")
+
 ```
 
 
@@ -274,26 +370,53 @@ for (ch in channel.list[c(2,3,5,6)]) {
 ```
 
 ## ANOVA - Subregions
-```{r}
+```{r, fig.height=4, fig.width=8}
 reg.stats = knew.molten3 %>%
   group_by(CHANNEL, SubROI_SubroiAGGR) %>%
-  do(tidy(aov(data=.,value ~ EXPT * VALENCE * CONTEXT)))
+  do(tidy(aov(data=., value ~ EXPT * VALENCE * CONTEXT)))
+
+
+for (tm in unique(sys.stats$term)) {
+  for (ch in unique(sys.stats$CHANNEL)) {
+    print(
+      reg.stats %>% 
+        filter(term=="EXPT:VALENCE:CONTEXT") %>% 
+        filter(!(term=='Residuals')) %>%
+        filter(CHANNEL==ch) %>%
+        mutate(p.value = p.adjust(p.value, method="BH", n = 66)) %>%
+        ggplot() + aes(reorder(SubROI_SubroiAGGR, p.value), -log10(p.value), label=p.value, fill=SubROI_SubroiAGGR) + 
+        geom_bar(stat="identity") +
+        theme_light() + rx +
+        ggtitle(paste(ch, ",", tm, "(3-way ANOVA)")) +
+        ylab("p-value 10^-x, Benjamini-Hochberg post-hoc for n=66 regions") +
+        xlab("Subregions") +
+        # facet_wrap(~term, ncol=3, scales="free") +
+        geom_hline(yintercept = 2) +
+        theme(text = element_text(size=10))
+    )
+  }
+}
 
 for (ch in unique(sys.stats$CHANNEL)) {
   print(
-    reg.stats %>% filter(term=="EXPT:VALENCE:CONTEXT" & CHANNEL==ch) %>% 
-      filter(p.value < 0.05) %>%
+    reg.stats %>% 
+      filter(term=="VALENCE:CONTEXT") %>% 
+      # filter(!(term=='Residuals')) %>%
+      filter(CHANNEL==ch) %>%
       mutate(p.value = p.adjust(p.value, method="BH", n = 66)) %>%
-      ggplot() + aes(reorder(SubROI_SubroiAGGR, p.value), p.value, label=round(p.value,3)) + geom_bar(stat="identity") +
-      ylim(0,0.05) + geom_label() + rx +
-      ggtitle(paste(ch, ", 3-way interaction (3-way ANOVA)")) +
-      ylab("p.value, Holm-Bonferroni corrected. n=66 (regions)") +
-      xlab("Subregions")
+      ggplot() + aes(reorder(SubROI_SubroiAGGR, p.value), -log10(p.value), label=p.value, fill=SubROI_SubroiAGGR) + 
+      geom_bar(stat="identity") +
+      theme_light() + rx +
+      ggtitle(paste(ch, ",", "VALENCE:CONTEXT", "(2-way ANOVA)")) +
+      ylab("p-value 10^-x, Benjamini-Hochberg post-hoc for n=66 regions") +
+      xlab("Subregions") +
+      # facet_wrap(~term, ncol=3, scales="free") +
+      geom_hline(yintercept = 2) +
+      theme(text = element_text(size=12))
   )
 }
 
 ```
-
 
 ## Heatmaps for ROI
 
