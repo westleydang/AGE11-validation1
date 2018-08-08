@@ -1,0 +1,124 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+
+source("LoadLibs.R")
+countval.filelist = list.files(path = "counting assay thresholds/", full.names = TRUE)
+cv = do.call("rbind", lapply(countval.filelist, FUN = function(file) {
+  data.frame(
+    read.csv(file, header = TRUE, sep = ",", fileEncoding="UTF-8-BOM"), 
+    round = basename(file)
+  )
+}
+)
+)
+
+# make the column names easier to read by removing the 'X.'
+colnames(cv) <- gsub('X.', '', colnames(cv), fixed = TRUE)
+
+
+cv$uniqueID = str_extract(cv$round, "[:digit:]{5,7}")
+
+names.not.measurements = as.character(read.csv("OUTPUT/names_not_measurements.csv", header=T)$x)
+cv.id = names(cv)[-(26:45)]
+cv.id2 = names(cv)[26:45]
+cv.molten = melt(cv, id.vars = cv.id)
+
+cv.low = cv.id2[seq(1,20,4)]
+cv.mid = cv.id2[seq(2,20,4)]
+cv.hi = cv.id2[seq(3,20,4)]
+cv.tot = cv.id2[seq(4,20,4)]
+
+cv.molten = cv.molten %>%
+  mutate(BRIGHTNESS = 
+           case_when(
+             variable %in% cv.low ~ "low",
+             variable %in% cv.mid ~ "mid",
+             variable %in% cv.hi ~ "hi",
+             variable %in% cv.tot ~ "total"
+           ))
+
+cv.molten = cv.molten %>%
+  mutate(CHANNEL = 
+           case_when(
+             variable %in% cv.id2[1:4] ~ "DAPI",
+             variable %in% cv.id2[5:8] ~ "H2BGFP",
+             variable %in% cv.id2[9:12] ~ "GFAP",
+             variable %in% cv.id2[13:16] ~ "ArcIHC",
+             variable %in% cv.id2[17:20] ~ "OL"
+           ))
+
+
+
+
+threshold.range = read.csv("AGE threshold ranges - Sheet2.csv", header=T)
+
+cv.molten = merge(cv.molten, threshold.range, by=c("BRIGHTNESS", "uniqueID"))
+cv.molten$start = as.factor(cv.molten$start)
+
+
+
+rx = theme(axis.text.x = element_text(angle = 90, hjust = 1)) 
+
+attach(cv)
+attach(cv.molten)
+
+```
+
+# threshold ranges
+- "start" is the bottom end of the SD range
+- the "end" is always +3 SD
+- but you'll see later that the SD is greater than the mean in some channels
+- here you also see that ch2 and ch4 have fewer coronal counts with brighter mean intensity
+```{r}
+cv.molten %>%
+  ggplot() + aes(start, value) +
+    stat_summary(fun.y="var", geom="point") +
+  facet_wrap(~CHANNEL) +rx + ggtitle("variance")
+
+
+cv.molten %>%
+  # filter(Sub.ROI. == "SSs") %>%
+  ggplot() + 
+    aes(start, value, color=CHANNEL, group=CHANNEL) +
+    stat_summary(fun.data="mean_se", geom="errorbar", aes(width=0.5)) +
+    geom_smooth(method="lm", formula=(y~log(x))) + 
+    theme_minimal() + ggtitle("means +/- sem")
+
+
+ggplot(cv) + aes(Ch1.Mean., Ch1.Total.Coronal.Count.) + geom_jitter() +
+  geom_smooth(method="lm")
+ggplot(cv) + aes(Ch2.Mean., Ch2.Total.Coronal.Count.) + geom_jitter() +
+  geom_smooth(method="lm")
+ggplot(cv) + aes(Ch3.Mean., Ch3.Total.Coronal.Count.) + geom_jitter() +
+  geom_smooth(method="lm")
+ggplot(cv) + aes(Ch4.Mean., Ch4.Total.Coronal.Count.) + geom_jitter() +
+  geom_smooth(method="lm")
+
+
+
+```
+
+
+# how do means vary with sd?
+
+```{r}
+
+ggplot(cv.molten) + aes(Ch1.Mean., Ch1.SD.) + geom_jitter()
+
+ggplot(cv.molten) + aes(Ch2.Mean., Ch2.SD.) + geom_jitter()
+
+ggplot(cv.molten) + aes(Ch3.Mean., Ch3.SD.) + geom_jitter()
+ggplot(cv.molten) + aes(Ch4.Mean., Ch4.SD.) + geom_jitter()
+```
+
+```{r}
+cv.a = cv %>% filter(uniqueID == "155738")
+
+
+```
+

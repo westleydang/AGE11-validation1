@@ -1,0 +1,10 @@
+[1] -1
+[1] "73_01_-1_3426_RIGHT_COUNTS"
+[1] -1
+function (type = c("output", "message")) 
+{
+    type <- match.arg(type)
+    .Internal(sink.number(type != "message"))
+}
+<bytecode: 0x00000000039240d8>
+<environment: namespace:base>
