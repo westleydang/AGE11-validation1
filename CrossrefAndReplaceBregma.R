@@ -8,9 +8,11 @@ library(stringr)
 # Variables and aliases
 #
 
-output.folder = "E:/TestDir/New 02_COUNTS/"
+output.folder = "E:/WestleyAGE - July 2018/All New 02_COUNTS copied/"
 jpv2 = read.csv("OUTPUT/for_jeanne.csv", header=T, fileEncoding="UTF-8-BOM")
-output.log = paste(output.folder, 'sink2.csv', sep="")
+output.log = paste(output.folder, 'sink3.csv', sep="")
+
+dir.create(output.folder)
 
 
 # Get list of dirs AND sub-dirs
@@ -18,7 +20,7 @@ output.log = paste(output.folder, 'sink2.csv', sep="")
 # MAKE A CSV FILE OF ALL YOUR PARENT FOLDERS YOU WANT TO RUN
 # (WHICH IS THE FOLDER THAT HOUSES ALL THE ANIMAL FOLDERS)
 # PUT THE FIRST ROW AS THE HEADER "Directory"
-list.dirs1 = read.csv("Dirs_For_TestDirsRun.csv", header=T, fileEncoding="UTF-8-BOM")
+list.dirs1 = read.csv("Dirs_For_ageRerun.csv", header=T, fileEncoding="UTF-8-BOM")
 
 # Get the subdirs list
 final.dirs = c()
@@ -39,11 +41,11 @@ for (dir in final.dirs) {
   # For each sub-dir, get list of tif files
   lf = list.files(dir)
   lf = lf[grepl(".tif$", lf)==T]
-  
+
   # For each tif file, cross reference image sequence and animal name
   for (file in lf) {
     counter_total = counter_total+1
-    
+
     # get the tif file info
     image.sequence = strsplit(file, "_")[[1]][1]
     zlevel = strsplit(file, "_")[[1]][2]
