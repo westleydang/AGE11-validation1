@@ -10,7 +10,7 @@ library(stringr)
 
 output.folder = "E:/WestleyAGE - July 2018/All New 02_COUNTS copied/"
 jpv2 = read.csv("OUTPUT/for_jeanne.csv", header=T, fileEncoding="UTF-8-BOM")
-output.log = paste(output.folder, 'sink3.csv', sep="")
+output.log = paste(output.folder, 'renameLOG-aug17-2018-b.csv', sep="")
 
 dir.create(output.folder)
 
@@ -20,7 +20,7 @@ dir.create(output.folder)
 # MAKE A CSV FILE OF ALL YOUR PARENT FOLDERS YOU WANT TO RUN
 # (WHICH IS THE FOLDER THAT HOUSES ALL THE ANIMAL FOLDERS)
 # PUT THE FIRST ROW AS THE HEADER "Directory"
-list.dirs1 = read.csv("Dirs_For_ageRerun.csv", header=T, fileEncoding="UTF-8-BOM")
+list.dirs1 = read.csv("Dirs_For_AgeReRunAug18.csv", header=T, fileEncoding="UTF-8-BOM")
 
 # Get the subdirs list
 final.dirs = c()
@@ -36,7 +36,7 @@ counter_renamed = 0
 for (dir in final.dirs) {
   # dir.create(output.folder)
   # file.create(output.log)
-  # sink(output.log, append=T)
+  sink(output.log, append=T)
   
   # For each sub-dir, get list of tif files
   lf = list.files(dir)
@@ -60,7 +60,6 @@ for (dir in final.dirs) {
     # get the hemispheres...
     temp.find$File.Name. = as.character(temp.find$File.Name.)
     temp.find$hemisphere = str_split(temp.find$File.Name., "_", simplify=T)[,5]
-    
     
     # Match the image sequence AND the hemisphere in the temp.find table
     temp.find = temp.find[temp.find$sequence.no == image.sequence 
@@ -101,7 +100,7 @@ for (dir in final.dirs) {
   print(paste(counter_copied, "out of", counter_total, "copied so far"))
   print(paste(counter_renamed, "out of", counter_copied, "copied were renamed"))
   print("---")
-  # sink()
+  sink()
 }
 
 # ---

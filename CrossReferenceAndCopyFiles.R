@@ -55,6 +55,9 @@ for (dir in final.dirs) {
 
 # go to the folder and then reorganize the files
 # output.folder = "C:\\Users\\westley\\OneDrive - The Scripps Research Institute\\Samples for KK Human Ratings\\Raw images"
+
+library(stringr)
+output.folder ="E:/WestleyAGE - July 2018/round 2/MACRO_ANALYSIS/03-archive-new"
 output.files = list.files(output.folder)
 
 # get all the animal names unique value
