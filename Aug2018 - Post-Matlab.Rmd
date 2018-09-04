@@ -37,7 +37,7 @@ for (bright in c('low', 'mid', 'hi', 'total')) {
       filter(UNITS == "density") %>%
       filter(BRIGHTNESS == bright) %>%
       group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
-      summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+      summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
       ggplot() + aes(GROUP, weighted, color=EXPT) + 
       stat_summary(fun.y = "mean", geom="point") + 
       stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
@@ -47,71 +47,6 @@ for (bright in c('low', 'mid', 'hi', 'total')) {
   )
 }
 
-
-
-# testing roi stuff
-  knew.molten2 %>%
-      filter(UNITS == "density") %>%
-      filter(BRIGHTNESS == "total") %>%
-      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
-      summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
-      ggplot() + aes(GROUP, weighted, color=EXPT) + 
-      stat_summary(fun.y = "mean", geom="point") + 
-      stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
-      facet_wrap(~CHANNEL, scales="free") +
-      ggtitle(paste(c("Whole brain, weighted, density ROIAreapx"),bright,"cells")) +
-      theme_minimal() 
-    
-        knew.molten2 %>%
-      filter(UNITS == "density") %>%
-      filter(BRIGHTNESS == 'total') %>%
-      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
-      summarize(weighted = weighted.mean(value, ROIAreapx_PopMean)) %>%
-      ggplot() + aes(GROUP, weighted, color=EXPT) + 
-      stat_summary(fun.y = "mean", geom="point") + 
-      stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
-      facet_wrap(~CHANNEL, scales="free") +
-      ggtitle(paste(c("Whole brain, weighted, density ROIAreapx_PopMean"),bright,"cells")) +
-      theme_minimal() 
-        
-            knew.molten2 %>%
-      filter(UNITS == "density") %>%
-      filter(BRIGHTNESS == 'total') %>%
-      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
-      summarize(weighted = weighted.mean(value, Sample_roiAreaMM2)) %>%
-      ggplot() + aes(GROUP, weighted, color=EXPT) + 
-      stat_summary(fun.y = "mean", geom="point") + 
-      stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
-      facet_wrap(~CHANNEL, scales="free") +
-      ggtitle(paste(c("Whole brain, weighted, density Sample_roiAreaMM2"),bright,"cells")) +
-      theme_minimal() 
-            
-                knew.molten2 %>%
-      filter(UNITS == "density") %>%
-      filter(BRIGHTNESS == 'total') %>%
-      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
-      summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
-      ggplot() + aes(GROUP, weighted, color=EXPT) + 
-      stat_summary(fun.y = "mean", geom="point") + 
-      stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
-      facet_wrap(~CHANNEL, scales="free") +
-      ggtitle(paste(c("Whole brain, weighted, density Pop_roiAreaMM2"),bright,"cells")) +
-      theme_minimal() 
-                
-                                
-                knew.molten2 %>%
-      filter(UNITS == "density") %>%
-      filter(BRIGHTNESS == 'total') %>%
-      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
-      summarize(weighted = weighted.mean(value, areaNormFactor)) %>%
-      ggplot() + aes(GROUP, weighted, color=EXPT) + 
-      stat_summary(fun.y = "mean", geom="point") + 
-      stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
-      facet_wrap(~CHANNEL, scales="free") +
-      ggtitle(paste(c("Whole brain, weighted, density areaNormFactor"),bright,"cells")) +
-      theme_minimal() 
-                
-                
     
 ```
 
@@ -157,7 +92,7 @@ knew.molten2 %>%
   filter(BRIGHTNESS == 'total') %>%
   filter(VALENCE == 'SHOCK') %>%
   group_by(ID, FREEZE,GROUP, EXPT, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
   ggplot() + aes(FREEZE, weighted) + 
   stat_summary(fun.y="mean", geom="point") +
   facet_wrap(EXPT~CHANNEL, scales="free", ncol=6) + geom_smooth(method="lm") +
@@ -169,7 +104,7 @@ knew.molten2 %>%
   filter(UNITS == "density") %>%
   filter(BRIGHTNESS == 'total') %>%
   group_by(ID, FREEZE,GROUP, EXPT, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
   ggplot() + aes(FREEZE, weighted) + 
   stat_summary(fun.y="mean", geom="point") +
   facet_wrap(EXPT~CHANNEL, scales="free", ncol=6) + geom_smooth(method="lm") +
@@ -187,7 +122,7 @@ tot.lr = knew.molten2 %>%
   # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
   
   group_by(CHANNEL, EXPT, GROUP, ID, FREEZE) %>%
-  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
   
   group_by(CHANNEL, EXPT) %>%
   do(tidy(lm(data=., formula = weighted ~ FREEZE))) %>%
@@ -234,7 +169,7 @@ knew.molten2 %>%
   filter(UNITS == "density" & BRIGHTNESS == 'total') %>%
   filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
   group_by(ID, System, GROUP, EXPT, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
   ggplot() + aes(GROUP, weighted, color=EXPT) + 
   stat_summary(fun.y = "mean", geom="point") + 
   stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
@@ -249,7 +184,7 @@ knew.molten2 %>%
   filter(UNITS == "density" & BRIGHTNESS == 'total') %>%
   # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
   group_by(ID, System, GROUP, EXPT, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
   ggplot() + aes(GROUP, weighted, color=EXPT) + 
   stat_summary(fun.y = "mean", geom="point") + 
   stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
@@ -314,7 +249,7 @@ for (ch in channel.list[c(2,3,5,6)]) {
       filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
       filter(CHANNEL == ch) %>%
       group_by(ID, System, GROUP, EXPT, CHANNEL, FREEZE, variable) %>%
-      summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+      summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
       ggplot() + aes(FREEZE, weighted) + 
       stat_summary(fun.y="mean", geom="point") +
       facet_wrap(EXPT~System, scales="free", ncol=16) + geom_smooth(method="lm") +
@@ -334,7 +269,7 @@ sys.lr = knew.molten2 %>%
   filter(VALENCE == 'SHOCK') %>%
   # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
   group_by(CHANNEL, EXPT, GROUP, ID, FREEZE, System) %>%
-  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
   
   group_by(CHANNEL, EXPT, System) %>%
   do(tidy(lm(data=., formula = weighted ~ FREEZE))) %>%
@@ -375,7 +310,7 @@ sys.lr2 = knew.molten2 %>%
   # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
   
   group_by(CHANNEL, EXPT, GROUP, ID, FREEZE, System) %>%
-  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
   
   group_by(CHANNEL) %>%
   do(tidy(lm(data=., weighted ~ FREEZE * EXPT))) %>%
@@ -402,7 +337,7 @@ knew.molten2 %>%
   filter(VALENCE == 'SHOCK') %>%
   filter(!CHANNEL=='DAPI') %>%
   group_by(CHANNEL, EXPT, GROUP, ID, FREEZE, System) %>%
-  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
   ggplot() + aes(FREEZE, weighted, color=EXPT) +
   # geom_point() +
   geom_smooth(method="lm", fullrange=T, aes(group=EXPT)) +
@@ -543,7 +478,7 @@ roi.lr = knew.molten2 %>%
   # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
   
   group_by(CHANNEL, EXPT, GROUP, ID, SubROI_SubroiAGGR) %>%
-  mutate(weighted = weighted.mean(value, ROIAreapx)) %>%
+  mutate(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
   
   group_by(CHANNEL, EXPT, SubROI_SubroiAGGR) %>%
   do(tidy(lm(data=., formula = weighted ~ FREEZE))) %>%
