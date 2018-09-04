@@ -46,6 +46,72 @@ for (bright in c('low', 'mid', 'hi', 'total')) {
       theme_minimal() 
   )
 }
+
+
+
+# testing roi stuff
+  knew.molten2 %>%
+      filter(UNITS == "density") %>%
+      filter(BRIGHTNESS == "total") %>%
+      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
+      summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+      ggplot() + aes(GROUP, weighted, color=EXPT) + 
+      stat_summary(fun.y = "mean", geom="point") + 
+      stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
+      facet_wrap(~CHANNEL, scales="free") +
+      ggtitle(paste(c("Whole brain, weighted, density ROIAreapx"),bright,"cells")) +
+      theme_minimal() 
+    
+        knew.molten2 %>%
+      filter(UNITS == "density") %>%
+      filter(BRIGHTNESS == 'total') %>%
+      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
+      summarize(weighted = weighted.mean(value, ROIAreapx_PopMean)) %>%
+      ggplot() + aes(GROUP, weighted, color=EXPT) + 
+      stat_summary(fun.y = "mean", geom="point") + 
+      stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
+      facet_wrap(~CHANNEL, scales="free") +
+      ggtitle(paste(c("Whole brain, weighted, density ROIAreapx_PopMean"),bright,"cells")) +
+      theme_minimal() 
+        
+            knew.molten2 %>%
+      filter(UNITS == "density") %>%
+      filter(BRIGHTNESS == 'total') %>%
+      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
+      summarize(weighted = weighted.mean(value, Sample_roiAreaMM2)) %>%
+      ggplot() + aes(GROUP, weighted, color=EXPT) + 
+      stat_summary(fun.y = "mean", geom="point") + 
+      stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
+      facet_wrap(~CHANNEL, scales="free") +
+      ggtitle(paste(c("Whole brain, weighted, density Sample_roiAreaMM2"),bright,"cells")) +
+      theme_minimal() 
+            
+                knew.molten2 %>%
+      filter(UNITS == "density") %>%
+      filter(BRIGHTNESS == 'total') %>%
+      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
+      summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+      ggplot() + aes(GROUP, weighted, color=EXPT) + 
+      stat_summary(fun.y = "mean", geom="point") + 
+      stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
+      facet_wrap(~CHANNEL, scales="free") +
+      ggtitle(paste(c("Whole brain, weighted, density Pop_roiAreaMM2"),bright,"cells")) +
+      theme_minimal() 
+                
+                                
+                knew.molten2 %>%
+      filter(UNITS == "density") %>%
+      filter(BRIGHTNESS == 'total') %>%
+      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
+      summarize(weighted = weighted.mean(value, areaNormFactor)) %>%
+      ggplot() + aes(GROUP, weighted, color=EXPT) + 
+      stat_summary(fun.y = "mean", geom="point") + 
+      stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
+      facet_wrap(~CHANNEL, scales="free") +
+      ggtitle(paste(c("Whole brain, weighted, density areaNormFactor"),bright,"cells")) +
+      theme_minimal() 
+                
+                
     
 ```
 
