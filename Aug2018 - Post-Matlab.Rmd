@@ -1,0 +1,514 @@
+---
+title: "R Notebook"
+output: html_document
+---
+
+# Post matlab stuff
+
+```{r, eval=FALSE}
+source("LoadLibs.R")
+source("LoadProcessZ1New.R")
+attach(knew.molten)
+
+# Merge more details
+freeze_details = read.csv("freeze_details.csv")
+group_details = read.csv("group_details.csv", header=T, encoding = "UTF-8-BOM")
+names(group_details)[1] = "GROUP"
+
+knew.molten2 = merge(knew.molten, freeze_details, by="ID")
+knew.molten2 = merge(knew.molten2, group_details, by="GROUP")
+
+knew.molten2 = knew.molten2 %>% mutate(value = ifelse(value=='NaN', 0, value))
+
+
+```
+
+
+
+# TOTAL brain, weighted average by ROI
+
+## Point-range graphs for each of the threshold levels
+From the rest of the graphs, we ended up choosing the total cells. 
+```{r}
+
+for (bright in c('low', 'mid', 'hi', 'total')) {
+  print(
+    knew.molten2 %>%
+      filter(UNITS == "density") %>%
+      filter(BRIGHTNESS == bright) %>%
+      group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
+      summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+      ggplot() + aes(GROUP, weighted, color=EXPT) + 
+      stat_summary(fun.y = "mean", geom="point") + 
+      stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
+      facet_wrap(~CHANNEL, scales="free") +
+      ggtitle(paste(c("Whole brain, weighted, density"),bright,"cells")) +
+      theme_minimal() 
+  )
+}
+    
+```
+
+
+## ANOVA
+
+```{r}
+
+knew.molten3 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total')
+
+tot.stats = knew.molten3 %>%
+  group_by(CHANNEL) %>%
+  do(tidy(aov(data=.,value ~ EXPT * VALENCE * CONTEXT)))
+
+
+for (ch in unique(tot.stats$CHANNEL)) {
+  print(
+    tot.stats %>%
+      filter(CHANNEL==ch) %>%
+      filter(!(term=='Residuals')) %>%
+      ggplot() + aes(reorder(CHANNEL, p.value), -log10(p.value), label=p.value, fill=CHANNEL) +
+      geom_bar(stat="identity") +
+      coord_flip() + theme_minimal() + rx +
+      ggtitle(paste(ch, ",", "(3-way ANOVA)")) +
+      ylab("p-value 10^-x") +
+      xlab("System") +
+      facet_wrap(~term, ncol=1) +
+      geom_hline(yintercept = 2)
+  )
+}
+
+
+```
+
+
+## Linear regressions (total brain)
+```{r}
+# shock lin reg
+knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  group_by(ID, FREEZE,GROUP, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  ggplot() + aes(FREEZE, weighted) + 
+  stat_summary(fun.y="mean", geom="point") +
+  facet_wrap(EXPT~CHANNEL, scales="free", ncol=6) + geom_smooth(method="lm") +
+  ggtitle("Total brain density vs freezing, total cells, shock animals only") +
+  theme_minimal()
+
+# all animals lin reg
+knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total') %>%
+  group_by(ID, FREEZE,GROUP, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  ggplot() + aes(FREEZE, weighted) + 
+  stat_summary(fun.y="mean", geom="point") +
+  facet_wrap(EXPT~CHANNEL, scales="free", ncol=6) + geom_smooth(method="lm") +
+  ggtitle("Total brain density vs freezing, total cells, ALL animals") +
+  theme_minimal()
+
+```
+## Stats for linear regressions
+```{r,fig.width=3, fig.height=6}
+ # GET THE STATS
+tot.lr = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
+  
+  group_by(CHANNEL, EXPT, GROUP, ID, FREEZE) %>%
+  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  
+  group_by(CHANNEL, EXPT) %>%
+  do(tidy(lm(data=., formula = weighted ~ FREEZE))) %>%
+  filter(!term=="(Intercept)") %>%
+  mutate(p.value = p.adjust(p.value, method="BH", n=6)) %>%
+  mutate(sig = 
+           case_when(
+             p.value < 0.0005 ~ "***",
+             p.value < 0.005 ~ "**", 
+             p.value < 0.05 ~ "*"
+           ))
+
+
+# positive or negative
+tot.lr %>%
+  filter(CHANNEL %in% c("H2BGFP","NormOL", "ArcIHC")) %>% # omit DAPI/OL/GFAP channels for clarity
+  # dcast(., CHANNEL+EXPT ~ System, value.var="sig") %>%
+  ggplot() + aes(EXPT, CHANNEL, fill=estimate/abs(estimate), label=round(estimate,0)) + geom_tile() +
+  scale_fill_continuous(limits=c(-1,1), low="red", high="green", na.value="white") + 
+  ggtitle("Slopes from linear regression (red is negative)") +
+  theme_light()
+
+# P VALUES
+tot.lr %>%
+  filter(CHANNEL %in% c("H2BGFP","NormOL", "ArcIHC")) %>% # omit DAPI/OL/GFAP channels for clarity
+  # dcast(., CHANNEL+EXPT ~ System, value.var="sig") %>%
+  ggplot() + aes(EXPT, CHANNEL, fill=p.value, label=sig) + geom_tile() +
+  scale_fill_continuous(limits=c(0,0.05), low="dark red", high="white", na.value="white") + 
+  ggtitle("Signifiance scores from linear regression (Holm corrected)") +
+  theme_light() + geom_label(label.size=0, color="white")
+```
+
+
+
+
+# SYSTEMS analysis 
+
+## Calculate weighted means for each system
+```{r, fig.width = 9, fig.height=3}
+
+# systems, weighted by ROI area
+knew.molten2 %>%
+  filter(CHANNEL %in% channel.list[c(2,3,6)]) %>%
+  filter(UNITS == "density" & BRIGHTNESS == 'total') %>%
+  filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
+  group_by(ID, System, GROUP, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  ggplot() + aes(GROUP, weighted, color=EXPT) + 
+  stat_summary(fun.y = "mean", geom="point") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
+  facet_wrap(CHANNEL~System, scales="free", ncol=15) + 
+  ggtitle("systems, weighted, density total cells, bad freezers removed") + 
+  theme_light() + rx
+
+
+# systems, weighted by ROI area
+knew.molten2 %>%
+  filter(CHANNEL %in% channel.list[c(2,3,6)]) %>%
+  filter(UNITS == "density" & BRIGHTNESS == 'total') %>%
+  # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
+  group_by(ID, System, GROUP, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  ggplot() + aes(GROUP, weighted, color=EXPT) + 
+  stat_summary(fun.y = "mean", geom="point") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
+  facet_wrap(CHANNEL~System, scales="free", ncol=15) + 
+  ggtitle("systems, weighted, density total cells, bad freezers NOT removed") + 
+  theme_light() + rx
+
+
+```
+
+## ANOVA - Systems
+```{r}
+
+knew.molten3 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total')
+
+# if we did a 4-way ANOVA
+sys.stats = knew.molten3 %>%
+  group_by(CHANNEL) %>%
+  do(tidy(aov(data=.,value ~ System * EXPT * VALENCE * CONTEXT)))
+
+sys.stats = knew.molten3 %>%
+  group_by(CHANNEL, System) %>%
+  do(tidy(aov(data=.,value ~ EXPT * VALENCE * CONTEXT)))
+summary(sys.stats$p.value)
+
+for (tm in unique(sys.stats$term)) {
+  for (ch in unique(sys.stats$CHANNEL)) {
+    print(
+      sys.stats %>% 
+        filter(term==tm & CHANNEL==ch) %>% 
+        filter(!(term=='Residuals')) %>%
+        filter(CHANNEL==ch) %>%
+        mutate(p.value = p.adjust(p.value, method="BH", n = 16)) %>%
+        ggplot() + aes(reorder(System, p.value), -log10(p.value), label=p.value, fill=System) + 
+        geom_bar(stat="identity") +
+        coord_flip() + theme_light() + rx +
+        ggtitle(paste(ch, ",", tm, "(3-way ANOVA)")) +
+        ylab("p-value 10^-x, Benjamini-Hochberg post-hoc for n=16 systems") +
+        xlab("System") +
+        facet_wrap(~term, ncol=3, scales="free") +
+        geom_hline(yintercept = 2)
+    )
+  }
+}
+
+
+
+```
+
+## Linear regressions 
+```{r, fig.width=9, fig.height=1.5}
+
+# LINEAR REGRESSIONS SYSTEMS
+for (ch in channel.list[c(2,3,5,6)]) {
+  print(
+    knew.molten2 %>%
+      filter(UNITS == "density") %>%
+      filter(BRIGHTNESS == 'total') %>%
+      filter(VALENCE == 'SHOCK') %>%
+      filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
+      filter(CHANNEL == ch) %>%
+      group_by(ID, System, GROUP, EXPT, CHANNEL, FREEZE, variable) %>%
+      summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+      ggplot() + aes(FREEZE, weighted) + 
+      stat_summary(fun.y="mean", geom="point") +
+      facet_wrap(EXPT~System, scales="free", ncol=16) + geom_smooth(method="lm") +
+      ggtitle(paste("Total brain density vs freezing, total cells, shock animals only,", ch)) +
+      theme_minimal() 
+  )
+}
+
+```
+
+## Stats for Systems Linear Regressions
+```{r}
+ # GET THE STATS
+sys.lr = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
+  group_by(CHANNEL, EXPT, GROUP, ID, FREEZE, System) %>%
+  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  
+  group_by(CHANNEL, EXPT, System) %>%
+  do(tidy(lm(data=., formula = weighted ~ FREEZE))) %>%
+  filter(!term=="(Intercept)") %>%
+  mutate(p.value = p.adjust(p.value, method="BH", n=16)) %>%
+  mutate(sig = 
+           case_when(
+             p.value < 0.0005 ~ "***",
+             p.value < 0.005 ~ "**", 
+             p.value < 0.05 ~ "*"
+           ))
+
+# positive or negative
+sys.lr %>%
+  filter(CHANNEL %in% c("H2BGFP","NormOL", "ArcIHC")) %>% # omit DAPI/OL/GFAP channels for clarity
+  # dcast(., CHANNEL+EXPT ~ System, value.var="sig") %>%
+  ggplot() + aes(EXPT, System, fill=estimate/abs(estimate), label=round(estimate,0)) + geom_tile() + facet_wrap(~CHANNEL) + 
+  scale_fill_continuous(limits=c(-1,1), low="red", high="green", na.value="white") + 
+  ggtitle("Slopes from linear regression (red is negative)") +
+  theme_light()
+
+# P VALUES
+sys.lr %>%
+  filter(CHANNEL %in% c("H2BGFP","NormOL", "ArcIHC")) %>% # omit DAPI/OL/GFAP channels for clarity
+  # dcast(., CHANNEL+EXPT ~ System, value.var="sig") %>%
+  ggplot() + aes(EXPT, System, fill=p.value, label=sig) + geom_tile() + facet_wrap(~CHANNEL) + 
+  scale_fill_continuous(limits=c(0,0.05), low="dark red", high="white", na.value="white") + 
+  ggtitle("Signifiance scores from linear regression (FDR corrected)") +
+  theme_light() + geom_label(label.size=0, color="white")
+```
+
+## Stats 2 (interactions)
+```{r}
+sys.lr2 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
+  
+  group_by(CHANNEL, EXPT, GROUP, ID, FREEZE, System) %>%
+  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  
+  group_by(CHANNEL) %>%
+  do(tidy(lm(data=., weighted ~ FREEZE * EXPT))) %>%
+  filter(!term=="Residuals") %>%
+  # mutate(p.value = p.adjust(p.value, method="BH", n=16)) %>%
+  mutate(sig = 
+           case_when(
+             p.value < 0.0005 ~ "***",
+             p.value < 0.005 ~ "**", 
+             p.value < 0.05 ~ "*"
+           ))
+
+sys.lr2 %>%
+  filter(term=='FREEZE:EXPTYOUNG') %>%
+  ggplot() + aes(reorder(CHANNEL, p.value), -log10(p.value), fill=CHANNEL) + 
+  geom_bar(stat="identity") + coord_flip() + theme_minimal() +
+  geom_hline(yintercept=2) +
+  ggtitle("(Activity ~ Freeze):AGE") +
+  xlab('channels')
+
+knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  filter(!CHANNEL=='DAPI') %>%
+  group_by(CHANNEL, EXPT, GROUP, ID, FREEZE, System) %>%
+  summarize(weighted = weighted.mean(value, ROIAreapx)) %>%
+  ggplot() + aes(FREEZE, weighted, color=EXPT) +
+  # geom_point() +
+  geom_smooth(method="lm", fullrange=T, aes(group=EXPT)) +
+  facet_wrap(~CHANNEL, scales="free") + theme_minimal() +
+  ggtitle("Regressions of cell density vs. freezing") +
+  ylab("Activated cell densities")
+
+```
+
+
+# REGIONS
+
+## Calculate the means for each ROI
+Find the code from the other scripts you wrote. 
+
+```{r, fig.width=16, fig.height=10}
+
+for (ch in channel.list[c(2,3,5,6)]) {
+  print(
+    knew.molten2 %>%
+      filter(UNITS == "density" & BRIGHTNESS == 'total') %>%
+      filter(CHANNEL == ch) %>%
+      filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE=='SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
+      ggplot() + aes(GROUP, value, color=EXPT) + 
+      stat_summary(fun.y = "mean", geom="point") + 
+      stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
+      facet_wrap(~SubROI_SubroiAGGR, scales="free", ncol=19) + 
+      ggtitle(paste(c("Densities, shock animals only, removed poor performers, "),ch,", TOTAL cells")) +
+      theme_light() + rx
+  )
+}
+
+
+```
+
+## ANOVA - Subregions
+```{r, fig.height=4, fig.width=8}
+reg.stats = knew.molten3 %>%
+  group_by(CHANNEL, SubROI_SubroiAGGR) %>%
+  do(tidy(aov(data=., value ~ EXPT * VALENCE * CONTEXT)))
+
+
+for (tm in unique(sys.stats$term)) {
+  for (ch in unique(sys.stats$CHANNEL)) {
+    print(
+      reg.stats %>% 
+        filter(term=="EXPT:VALENCE:CONTEXT") %>% 
+        filter(!(term=='Residuals')) %>%
+        filter(CHANNEL==ch) %>%
+        mutate(p.value = p.adjust(p.value, method="BH", n = 66)) %>%
+        ggplot() + aes(reorder(SubROI_SubroiAGGR, p.value), -log10(p.value), label=p.value, fill=SubROI_SubroiAGGR) + 
+        geom_bar(stat="identity") +
+        theme_light() + rx +
+        ggtitle(paste(ch, ",", tm, "(3-way ANOVA)")) +
+        ylab("p-value 10^-x, Benjamini-Hochberg post-hoc for n=66 regions") +
+        xlab("Subregions") +
+        # facet_wrap(~term, ncol=3, scales="free") +
+        geom_hline(yintercept = 2) +
+        theme(text = element_text(size=10))
+    )
+  }
+}
+
+for (ch in unique(sys.stats$CHANNEL)) {
+  print(
+    reg.stats %>% 
+      filter(term=="VALENCE:CONTEXT") %>% 
+      # filter(!(term=='Residuals')) %>%
+      filter(CHANNEL==ch) %>%
+      mutate(p.value = p.adjust(p.value, method="BH", n = 66)) %>%
+      ggplot() + aes(reorder(SubROI_SubroiAGGR, p.value), -log10(p.value), label=p.value, fill=SubROI_SubroiAGGR) + 
+      geom_bar(stat="identity") +
+      theme_light() + rx +
+      ggtitle(paste(ch, ",", "VALENCE:CONTEXT", "(2-way ANOVA)")) +
+      ylab("p-value 10^-x, Benjamini-Hochberg post-hoc for n=66 regions") +
+      xlab("Subregions") +
+      # facet_wrap(~term, ncol=3, scales="free") +
+      geom_hline(yintercept = 2) +
+      theme(text = element_text(size=12))
+  )
+}
+
+```
+
+## Heatmaps for ROI
+
+```{r, fig.width=7.5, fig.height=2}
+
+for (bright in c('low', 'mid', 'hi', 'total')[4]) {
+  for (ch in channel.list) {
+    print(
+    knew.molten2 %>%
+      filter(UNITS == "density") %>%
+      filter(BRIGHTNESS == bright) %>%
+      filter(CHANNEL == ch) %>%
+      ddply(.(SubROI_SubroiAGGR, CHANNEL), transform, z = scale(value)) %>%
+      ggplot() + aes(GROUP, SubROI_SubroiAGGR, z=z, fill=z) +
+      geom_tile() + scale_fill_gradient2(low='dark blue', mid='white', high='red') +
+      facet_wrap(~EXPT, ncol=1) + rx + coord_flip() +
+      ggtitle(paste("Scaled density across all animals,",bright, ch)) +
+      theme_light() + rx
+  )
+  }
+}
+```
+
+
+
+## Linear regressions for ROI
+```{r, fig.width=12, fig.height=9}
+
+for (ch in channel.list[c(2,3,5,6)]) {
+  print(
+    knew.molten2 %>%
+      filter(UNITS == "density") %>%
+      filter(BRIGHTNESS == 'total') %>%
+      filter(VALENCE == 'SHOCK') %>%
+      filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
+      filter(CHANNEL == ch) %>%
+      ggplot() + aes(FREEZE, value) + 
+      stat_summary(fun.y="mean", geom="point") +
+      facet_wrap(EXPT~SubROI_SubroiAGGR, scales="free", ncol=16) + geom_smooth(method="lm") +
+      ggtitle(paste("Subregion vs freezing, total cells, shock animals only,", ch)) +
+      theme_minimal() 
+  )
+}
+
+```
+
+## Stats for linear regressions ROI
+Looks like none of these subregions correlate with freezing... how is it possible that Systems do?
+```{r, fig.height = 3, fig.width=5}
+ # GET THE STATS
+roi.lr = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
+  
+  group_by(CHANNEL, EXPT, GROUP, ID, SubROI_SubroiAGGR) %>%
+  mutate(weighted = weighted.mean(value, ROIAreapx)) %>%
+  
+  group_by(CHANNEL, EXPT, SubROI_SubroiAGGR) %>%
+  do(tidy(lm(data=., formula = weighted ~ FREEZE))) %>%
+  filter(!term=="(Intercept)") %>%
+  mutate(p.value = p.adjust(p.value, method="BH", n=(77*3*2))) %>%
+  mutate(sig = 
+           case_when(
+             p.value < 0.0005 ~ "***",
+             p.value < 0.005 ~ "**", 
+             p.value < 0.05 ~ "*"
+           ))
+
+
+# positive or negative
+roi.lr %>%
+  filter(CHANNEL %in% c("H2BGFP","NormOL", "ArcIHC")) %>% # omit DAPI/OL/GFAP channels for clarity
+  # dcast(., CHANNEL+EXPT ~ System, value.var="sig") %>%
+  ggplot() + aes(EXPT, SubROI_SubroiAGGR, fill=estimate/abs(estimate), label=round(estimate,0)) + geom_tile() + facet_wrap(~CHANNEL) + 
+  scale_fill_continuous(limits=c(-1,1), low="red", high="green", na.value="white") + 
+  ggtitle("Slopes from linear regression (red is negative)") +
+  theme_light()
+
+# P VALUES
+roi.lr %>%
+  filter(CHANNEL %in% c("H2BGFP","NormOL", "ArcIHC")) %>% # omit DAPI/OL/GFAP channels for clarity
+  # dcast(., CHANNEL+EXPT ~ System, value.var="sig") %>%
+  ggplot() + aes(EXPT, SubROI_SubroiAGGR, fill=p.value, label=sig) + geom_tile() + facet_wrap(~CHANNEL, ncol=1) + 
+  scale_fill_continuous(limits=c(0,0.05), low="dark red", high="white", na.value="white") + 
+  ggtitle("Signifiance scores from linear regression (Holm corrected)") +
+  theme_light() + geom_label(label.size=0, color="white") + coord_flip() + rx
+
+
+```
+
