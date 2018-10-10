@@ -4,7 +4,7 @@ ol = function(OL, A, B) {
   NormOL = OL / (A + B - OL)
   NormOL
 }  
-ol(.05, .2, .2)
+ol(.5, 1, .5)
 
 
 knew = knew %>%

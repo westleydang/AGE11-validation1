@@ -32,4 +32,18 @@ animal_details = read.csv("animal_details3.csv", fileEncoding="UTF-8-BOM")
 animal_details$Mouse.ID. = as.factor(animal_details$Mouse.ID.)
 raw = merge(animal_details, raw, by = "Mouse.ID.")
 
+# change everything else to numeric
+for (i in c(21:32, 37:57)) {
+  raw[,i] = as.numeric(as.character(raw[,i]))
+}
+
+# Convert time (hh:mm) to minutes 
+raw$DELTA.T = sapply(strsplit(as.character(raw$DELTA.T), ":"), function(x)
+{
+  x = as.numeric(x)
+  x[1] * 60 + x[2]
+}
+)
+
+source("SplitZLevels.R")
 

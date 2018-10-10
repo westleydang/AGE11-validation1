@@ -27,6 +27,7 @@ knew.molten3 = knew.molten2 %>%
 cluster.method = "alphabet"
 use.method = "complete"
 corr.type = "pearson"
+insig.method = "blank"
 
 ```
 
@@ -41,7 +42,10 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
+a.bad = sapply(a, function(x) all(is.nan(x)))
+a = a[,!a.bad]
+
+b = corr.test(a[,2:length(a)], use=use.method)
 
 r.melt = b$r %>% melt()
 p.melt = b$p %>% melt()
@@ -60,7 +64,10 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
+a.bad = sapply(a, function(x) all(is.nan(x)))
+a = a[,!a.bad]
+
+b = corr.test(a[,2:length(a)], use=use.method)
 
 r.melt = b$r %>% melt()
 p.melt = b$p %>% melt()
@@ -78,7 +85,10 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
+a.bad = sapply(a, function(x) all(is.nan(x)))
+a = a[,!a.bad]
+
+b = corr.test(a[,2:length(a)], use=use.method)
 
 r.melt = b$r %>% melt()
 p.melt = b$p %>% melt()
@@ -98,8 +108,11 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .)))
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all mice, ArcIHC", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+a.bad = sapply(a, function(x) all(is.nan(x)))
+a = a[,!a.bad]
+
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all mice, ArcIHC", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 ```
 
@@ -115,8 +128,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .)))
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all young", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all young", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 a = knew.molten3 %>%
   filter(EXPT == 'OLD') %>%
@@ -127,8 +140,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all old", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all old", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 ```
 
@@ -145,8 +158,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all shock arc", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all shock arc", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 a = knew.molten3 %>%
   filter(VALENCE == 'CONTEXT') %>%
@@ -157,8 +170,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all context arc", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all context arc", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 ```
 
@@ -174,11 +187,12 @@ a = knew.molten3 %>%
   mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
-  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+          select_if(~!all(is.na(.)))
   
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="shock AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="shock AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 
 a = knew.molten3 %>%
@@ -188,10 +202,12 @@ a = knew.molten3 %>%
   mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
-  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+          select_if(~!all(is.na(.)))
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="shock AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="shock AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 
 a = knew.molten3 %>%
@@ -201,10 +217,11 @@ a = knew.molten3 %>%
   mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
-  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+          select_if(~!all(is.na(.)))
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="ctx AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="ctx AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 
 a = knew.molten3 %>%
@@ -214,11 +231,12 @@ a = knew.molten3 %>%
   mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
-  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+          select_if(~!all(is.na(.)))
 
-b = corr.test(a[,2:67], use=use.method)
+b = corr.test(a[,2:length(a)], use=use.method)
 
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="ctx AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="ctx AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 
 ```
@@ -240,9 +258,9 @@ for (expt in unique(knew.molten3$EXPT)) {
           select_if(~!all(is.na(.)))
         
         b = corr.test(a[,2:dim(a)[2]])
-        corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, 
+        corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, 
                  title=paste(val, ctx, expt), 
-                 mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+                 mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
     }
   }
 }
@@ -261,8 +279,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .)))
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all mice, OL", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all mice, OL", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 ```
 
@@ -276,10 +294,11 @@ a = knew.molten3 %>%
   mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
-  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+          select_if(~!all(is.na(.)))
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all young", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all young", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 a = knew.molten3 %>%
   filter(EXPT == 'OLD') %>%
@@ -288,10 +307,11 @@ a = knew.molten3 %>%
   mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
-  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+          select_if(~!all(is.na(.)))
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all old", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all old", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 ```
 
@@ -307,8 +327,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 a = knew.molten3 %>%
   filter(CONTEXT == 'AB') %>%
@@ -319,8 +339,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 ```
 
@@ -335,8 +355,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all shock ol", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all shock ol", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 a = knew.molten3 %>%
   filter(VALENCE == 'CONTEXT') %>%
@@ -347,8 +367,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all context ol", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all context ol", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 ```
 
@@ -364,8 +384,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title=" shock AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title=" shock AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 
 a = knew.molten3 %>%
@@ -377,8 +397,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title=" shock AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title=" shock AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 
 a = knew.molten3 %>%
@@ -390,8 +410,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title=" ctx AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title=" ctx AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 
 a = knew.molten3 %>%
@@ -403,8 +423,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title=" ctx AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title=" ctx AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 ```
 
@@ -425,9 +445,9 @@ for (expt in unique(knew.molten3$EXPT)) {
           select_if(~!all(is.na(.)))
         
         b = corr.test(a[,2:dim(a)[2]])
-        corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, 
+        corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, 
                  title=paste(val, ctx, expt), 
-                 mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+                 mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
     }
   }
 }
@@ -442,10 +462,11 @@ a = knew.molten3 %>%
   mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) %>%
-  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .)))
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+  select_if(~!all(is.na(.)))
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all mice, H2BGFP", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all mice, H2BGFP", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 ```
 
@@ -459,10 +480,11 @@ a = knew.molten3 %>%
   mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
-  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+  select_if(~!all(is.na(.)))
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all young", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all young", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 a = knew.molten3 %>%
   filter(EXPT == 'OLD') %>%
@@ -471,10 +493,11 @@ a = knew.molten3 %>%
   mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
-  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+  select_if(~!all(is.na(.)))
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all old", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all old", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 ```
 
@@ -489,12 +512,13 @@ a = knew.molten3 %>%
   mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
-  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+  select_if(~!all(is.na(.)))
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all shock h2b", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all shock h2b", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
-corrplot(b$p, method="color", order=cluster.method, tl.cex=0.4, title="p-values, all shock h2b", mar=c(0,0,1,0), is.corr=F)
+corrplot(b$p, method="color", order=cluster.method, tl.cex=0.45, title="p-values, all shock h2b", mar=c(0,0,1,0), is.corr=F)
 
 a = knew.molten3 %>%
   filter(VALENCE == 'CONTEXT') %>%
@@ -503,10 +527,11 @@ a = knew.molten3 %>%
   mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
-  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
+  mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) %>%
+  select_if(~!all(is.na(.)))
 
-b = corr.test(a[,2:67], use="complete")
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="all context h2b", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use="complete")
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="all context h2b", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 ```
 ### All animals - Compare each group
@@ -521,8 +546,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="shock AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="shock AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 
 a = knew.molten3 %>%
@@ -534,8 +559,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="shock AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="shock AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 
 a = knew.molten3 %>%
@@ -547,8 +572,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="ctx AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="ctx AA", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 
 a = knew.molten3 %>%
@@ -560,8 +585,8 @@ a = knew.molten3 %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean)  %>%
   mutate_all(funs(ifelse(is.na(.), mean(., na.rm = TRUE), .))) 
 
-b = corr.test(a[,2:67], use=use.method)
-corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, title="ctx AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+b = corr.test(a[,2:length(a)], use=use.method)
+corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, title="ctx AB", mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
 
 ```
 
@@ -582,9 +607,9 @@ for (expt in unique(knew.molten3$EXPT)) {
           select_if(~!all(is.na(.)))
         
         b = corr.test(a[,2:dim(a)[2]])
-        corrplot(b$r, method="color", order=cluster.method, tl.cex=0.4, 
+        corrplot(b$r, method="color", order=cluster.method, tl.cex=0.45, 
                  title=paste(val, ctx, expt), 
-                 mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig="blank")
+                 mar=c(0,0,1,0), p.mat=b$p, sig.level=0.05, insig=insig.method)
     }
   }
 }
