@@ -94,23 +94,25 @@ for (bright in c('low', 'mid', 'hi', 'total')) {
       theme_minimal() 
   )
 }
-    
+
 ```
 
 
 ## ANOVA
 
 ```{r}
+# aggregate into whole brains
+ts1 = knew.molten3 %>%
+  ddply(., .(CHANNEL, GROUP, EXPT, VALENCE, CONTEXT, ID), summarize, wm = weighted.mean(value, Pop_roiAreaMM2))
 
-
-
-tot.stats = knew.molten3 %>%
+# run the ANOVA
+ts2 = ts1 %>%
   group_by(CHANNEL) %>%
-  do(tidy(aov(data=., value ~ EXPT * VALENCE * CONTEXT)))
+  do(tidy(aov(data=., wm ~ EXPT * VALENCE * CONTEXT)))
 
-for (ch in unique(tot.stats$CHANNEL)) {
+for (ch in unique(ts2$CHANNEL)) {
   print(
-    tot.stats %>%
+    ts2 %>%
       filter(CHANNEL==ch) %>%
       filter(!(term=='Residuals')) %>%
       ggplot() + aes(reorder(CHANNEL, p.value), -log10(p.value), label=p.value, fill=CHANNEL) +
@@ -123,7 +125,6 @@ for (ch in unique(tot.stats$CHANNEL)) {
       geom_hline(yintercept = 2)
   )
 }
-
 
 ```
 
