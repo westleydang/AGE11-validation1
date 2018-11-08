@@ -25,12 +25,55 @@ knew.molten2 = merge(knew.molten2, group_details, by="GROUP")
 
 knew.molten2 = knew.molten2 %>% mutate(value = ifelse(value=='NaN', 0, value))
 
-knew.molten2$System
+
 ```
 
 
 
 # TOTAL brain, weighted average by ROI
+
+
+## Check normality and box cox transformation
+
+```{r}
+
+knew.molten3 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total')
+
+val = sample(knew.molten3$value, 10000)
+
+qqnorm(val, ylim=c(0,length(val)))
+qqline(val, col="red")
+
+library(MASS)
+Box = boxcox((val+0.00001) ~ 1, seq(-6, 6, 0.1))
+Cox = data.frame(Box$x, Box$y) 
+Cox2 = Cox[with(Cox, order(-Cox$Box.y)),] # reorder
+Cox2[1,] # get greatest
+lambda = Cox2[1, "Box.x"] # extract
+lambda
+val_box = (val ^ lambda - 1)/lambda # transform
+qqnorm(val_box)
+
+knew.molten3$value = (knew.molten3$value ^lambda -1) / lambda # transform
+
+
+
+knew.molten3 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total') %>%
+  group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+  ggplot() + aes(GROUP, weighted, color=EXPT) + 
+  stat_summary(fun.y = "mean", geom="point") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle(paste(c("Whole brain, weighted, density after boxcox transform"),bright,"cells")) +
+  theme_minimal() 
+
+
+```
 
 ## Point-range graphs for each of the threshold levels
 From the rest of the graphs, we ended up choosing the total cells. 
@@ -51,8 +94,6 @@ for (bright in c('low', 'mid', 'hi', 'total')) {
       theme_minimal() 
   )
 }
-
-
     
 ```
 
@@ -61,14 +102,11 @@ for (bright in c('low', 'mid', 'hi', 'total')) {
 
 ```{r}
 
-knew.molten3 = knew.molten2 %>%
-  filter(UNITS == "density") %>%
-  filter(BRIGHTNESS == 'total')
+
 
 tot.stats = knew.molten3 %>%
   group_by(CHANNEL) %>%
-  do(tidy(aov(data=.,value ~ EXPT * VALENCE * CONTEXT)))
-
+  do(tidy(aov(data=., value ~ EXPT * VALENCE * CONTEXT)))
 
 for (ch in unique(tot.stats$CHANNEL)) {
   print(
@@ -119,7 +157,7 @@ knew.molten2 %>%
 
 ```
 ## Stats for linear regressions
-```{r,fig.width=3, fig.height=6}
+```{r,fig.width=3, fig.height=6, eval=F}
  # GET THE STATS
 tot.lr = knew.molten2 %>%
   filter(UNITS == "density") %>%
@@ -168,7 +206,7 @@ tot.lr %>%
 
 ## Check normality
 
-```{r}
+```{r, eval=F}
 paratest = sample_n(knew.molten2, 5000)
 
 #check for each group
@@ -182,7 +220,7 @@ knew.molten2 %>%
 ```
 
 ## Calculate weighted means for each system
-```{r, fig.width = 24, fig.height=9}
+```{r, fig.width = 20, fig.height=6}
 
 # systems, weighted by ROI area
 knew.molten2 %>%
@@ -194,7 +232,7 @@ knew.molten2 %>%
   ggplot() + aes(GROUP, weighted, color=EXPT) + 
   stat_summary(fun.y = "mean", geom="point") + 
   stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
-  facet_wrap(CHANNEL~System, scales="free", ncol=15) + 
+  facet_wrap(CHANNEL~System, scales="free", ncol=16) + 
   ggtitle("systems, weighted, density total cells, bad freezers removed") + 
   theme_light() + rx
 
@@ -209,7 +247,7 @@ knew.molten2 %>%
   ggplot() + aes(GROUP, weighted, color=EXPT) + 
   stat_summary(fun.y = "mean", geom="point") + 
   stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
-  facet_wrap(CHANNEL~System, scales="free", ncol=15) + 
+  facet_wrap(CHANNEL~System, scales="free", ncol=16) + 
   ggtitle("systems, weighted, density total cells, bad freezers NOT removed") + 
   theme_light() + rx
 
@@ -257,6 +295,31 @@ for (tm in unique(sys.stats$term)) {
 
 ```
 
+
+## Heatmaps for Systems
+
+```{r, fig.width=6, fig.height=4}
+
+for (bright in c('low', 'mid', 'hi', 'total')[4]) {
+  for (ch in channel.list) {
+    print(
+    knew.molten2 %>%
+      filter(UNITS == "density") %>%
+      filter(BRIGHTNESS == bright) %>%
+      filter(CHANNEL == ch) %>%
+      ddply(.(EXPT, System, CHANNEL), transform, z = scale(value, center=T)) %>%
+      ggplot() + aes(GROUP, System, fill=z) +
+      geom_tile() + scale_fill_gradient2(low='dark blue', mid='white', high='red') +
+      facet_wrap(~EXPT, ncol=2) + rx  +
+      ggtitle(paste("Scaled density across animals in age group,",bright, ch)) +
+      theme_light() + rx
+  )
+  }
+}
+
+
+```
+
 ## Linear regressions 
 ```{r, fig.width=18, fig.height=4}
 
@@ -282,7 +345,7 @@ for (ch in channel.list[c(2,3,5,6)]) {
 ```
 
 ## Stats for Systems Linear Regressions
-```{r}
+```{r, eval=F}
  # GET THE STATS
 sys.lr = knew.molten2 %>%
   filter(UNITS == "density") %>%
@@ -323,7 +386,7 @@ sys.lr %>%
 ```
 
 ## Stats 2 (interactions)
-```{r}
+```{r, eval=F}
 sys.lr2 = knew.molten2 %>%
   filter(UNITS == "density") %>%
   filter(BRIGHTNESS == 'total') %>%
@@ -376,7 +439,7 @@ Find the code from the other scripts you wrote.
 
 ```{r, fig.width=16, fig.height=10}
 
-for (ch in channel.list[c(2,3,5,6)]) {
+for (ch in channel.list[c(2,3,4,5,6)]) {
   print(
     knew.molten2 %>%
       filter(UNITS == "density" & BRIGHTNESS == 'total') %>%
@@ -395,7 +458,7 @@ for (ch in channel.list[c(2,3,5,6)]) {
 ```
 
 ## ANOVA - Subregions
-```{r, fig.height=4, fig.width=8}
+```{r, fig.height=4, fig.width=8, eval=F}
 reg.stats = knew.molten3 %>%
   group_by(CHANNEL, SubROI_SubroiAGGR) %>%
   do(tidy(aov(data=., value ~ EXPT * VALENCE * CONTEXT)))
@@ -445,7 +508,7 @@ for (ch in unique(sys.stats$CHANNEL)) {
 
 ## Heatmaps for ROI
 
-```{r, fig.width=7.5, fig.height=2}
+```{r, fig.width=9, fig.height=4}
 
 for (bright in c('low', 'mid', 'hi', 'total')[4]) {
   for (ch in channel.list) {
@@ -454,11 +517,11 @@ for (bright in c('low', 'mid', 'hi', 'total')[4]) {
       filter(UNITS == "density") %>%
       filter(BRIGHTNESS == bright) %>%
       filter(CHANNEL == ch) %>%
-      ddply(.(SubROI_SubroiAGGR, CHANNEL), transform, z = scale(value)) %>%
+      ddply(.(EXPT, SubROI_SubroiAGGR, CHANNEL), transform, z = scale(value)) %>%
       ggplot() + aes(GROUP, SubROI_SubroiAGGR, z=z, fill=z) +
       geom_tile() + scale_fill_gradient2(low='dark blue', mid='white', high='red') +
       facet_wrap(~EXPT, ncol=1) + rx + coord_flip() +
-      ggtitle(paste("Scaled density across all animals,",bright, ch)) +
+      ggtitle(paste("Scaled density across animals in age group,",bright, ch)) +
       theme_light() + rx
   )
   }
@@ -468,7 +531,7 @@ for (bright in c('low', 'mid', 'hi', 'total')[4]) {
 
 
 ## Linear regressions for ROI
-```{r, fig.width=12, fig.height=9}
+```{r, fig.width=12, fig.height=9, eval=F}
 
 for (ch in channel.list[c(2,3,5,6)]) {
   print(
@@ -490,7 +553,7 @@ for (ch in channel.list[c(2,3,5,6)]) {
 
 ## Stats for linear regressions ROI
 Looks like none of these subregions correlate with freezing... how is it possible that Systems do?
-```{r, fig.height = 3, fig.width=5}
+```{r, fig.height = 3, fig.width=5, eval=F}
  # GET THE STATS
 roi.lr = knew.molten2 %>%
   filter(UNITS == "density") %>%
@@ -533,4 +596,18 @@ roi.lr %>%
 
 
 ```
+
+
+# MISC
+
+```{r}
+
+knew.molten3 %>%
+  select(ID, EXPT, GROUP) %>%
+  unique() %>%
+  group_by(EXPT, GROUP) %>%
+  summarize(number_animals = n())
+
+```
+
 

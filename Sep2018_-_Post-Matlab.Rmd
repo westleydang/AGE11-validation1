@@ -600,3 +600,17 @@ roi.lr %>%
 
 ```
 
+
+# MISC
+
+```{r}
+
+knew.molten3 %>%
+  select(ID, EXPT, GROUP) %>%
+  unique() %>%
+  group_by(EXPT, GROUP) %>%
+  summarize(number_animals = n())
+
+```
+
+
