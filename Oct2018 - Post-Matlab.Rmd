@@ -12,7 +12,7 @@ output:
 
 ```{r}
 source("LoadLibs.R")
-source("LoadProcessZ1New.R")
+source("LoadProcessZ1New.R") #ouputs knew.molten (df)
 attach(knew.molten)
 
 # Merge more details
@@ -23,6 +23,12 @@ names(group_details)[1] = "GROUP"
 knew.molten2 = merge(knew.molten, freeze_details, by="ID")
 knew.molten2 = merge(knew.molten2, group_details, by="GROUP")
 
+# from now on I'm interesreted in densities and total
+knew.molten3 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total')
+
+# why did I do this?
 knew.molten2 = knew.molten2 %>% mutate(value = ifelse(value=='NaN', 0, value))
 
 
@@ -61,15 +67,13 @@ knew.molten3$value = (knew.molten3$value ^lambda -1) / lambda # transform
 
 
 knew.molten3 %>%
-  filter(UNITS == "density") %>%
-  filter(BRIGHTNESS == 'total') %>%
   group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
   summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
   ggplot() + aes(GROUP, weighted, color=EXPT) + 
   stat_summary(fun.y = "mean", geom="point") + 
   stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
   facet_wrap(~CHANNEL, scales="free") +
-  ggtitle(paste(c("Whole brain, weighted, density after boxcox transform"),bright,"cells")) +
+  ggtitle(paste(c("Whole brain, weighted, density after boxcox transform"),"TOTAL","cells")) +
   theme_minimal() 
 
 
@@ -110,6 +114,7 @@ ts2 = ts1 %>%
   group_by(CHANNEL) %>%
   do(tidy(aov(data=., wm ~ EXPT * VALENCE * CONTEXT)))
 
+# graph it
 for (ch in unique(ts2$CHANNEL)) {
   print(
     ts2 %>%
@@ -157,6 +162,8 @@ knew.molten2 %>%
   theme_minimal()
 
 ```
+
+
 ## Stats for linear regressions
 ```{r,fig.width=3, fig.height=6, eval=F}
  # GET THE STATS
@@ -208,14 +215,13 @@ tot.lr %>%
 ## Check normality
 
 ```{r, eval=F}
-paratest = sample_n(knew.molten2, 5000)
+# sample 5000 cases
+paratest = sample_n(knew.molten3, 5000)
 
-#check for each group
-knew.molten2 %>%
-  filter(UNITS == 'density') %>%
-  filter(BRIGHTNESS == 'total') %>%
-  group_by(System, CHANNEL) %>%
-  do(tidy(shapiro.test(.$value)))
+# check for each System?
+paratest %>% 
+  group_by(GROUP, EXPT, CHANNEL, System) %>%
+  do(tidy(shapiro.test(value)))
 
 
 ```
@@ -258,24 +264,28 @@ knew.molten2 %>%
 ## ANOVA - Systems
 ```{r}
 
-knew.molten3 = knew.molten2 %>%
-  filter(UNITS == "density") %>%
-  filter(BRIGHTNESS == 'total')
 
-# if we did a 4-way ANOVA
-sys.stats = knew.molten3 %>%
-  group_by(CHANNEL) %>%
-  do(tidy(aov(data=.,value ~ System * EXPT * VALENCE * CONTEXT)))
+ss1 = knew.molten3 %>%
+  ddply(., .(CHANNEL, GROUP, EXPT, VALENCE, CONTEXT, ID, System), summarize,
+        wm = weighted.mean(value, Pop_roiAreaMM2))
+
+
+ss2 = ss1 %>%
+  group_by(CHANNEL, System) %>%
+  do(tidy(aov(data=., wm ~ EXPT * VALENCE * CONTEXT)))
+
+ss2.sig = ss2 %>% filter(p.value < 0.01) %>%
+  ddply(., .(term, CHANNEL), summarize, count = n())
+
 
 sys.stats = knew.molten3 %>%
   group_by(CHANNEL, System) %>%
   do(tidy(aov(data=.,value ~ EXPT * VALENCE * CONTEXT)))
-summary(sys.stats$p.value)
 
-for (tm in unique(sys.stats$term)) {
-  for (ch in unique(sys.stats$CHANNEL)) {
+for (tm in unique(ss2$term)) {
+  for (ch in unique(ss2$CHANNEL)) {
     print(
-      sys.stats %>% 
+      ss2 %>% 
         filter(term==tm & CHANNEL==ch) %>% 
         filter(!(term=='Residuals')) %>%
         filter(CHANNEL==ch) %>%
@@ -286,7 +296,7 @@ for (tm in unique(sys.stats$term)) {
         ggtitle(paste(ch, ",", tm, "(3-way ANOVA)")) +
         ylab("p-value 10^-x, Benjamini-Hochberg post-hoc for n=16 systems") +
         xlab("System") +
-        facet_wrap(~term, ncol=3, scales="free") +
+        # facet_wrap(~term, ncol=3, scales="free") +
         geom_hline(yintercept = 2)
     )
   }

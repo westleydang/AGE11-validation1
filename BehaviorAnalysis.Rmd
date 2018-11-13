@@ -1,0 +1,150 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+ 
+# Load the data, process
+
+```{r}
+
+library(reshape2)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(broom)
+
+fc_data = read.csv("AGE10-16 FC.csv", header=T) # source
+
+fc_data0 = fc_data # back up
+fc_data$ID = fc_data$Animal # rename to merge
+
+animal_details = read.csv("animal_details4.csv")
+fc_data = merge(fc_data, animal_details, by="ID") # merge
+
+# cast components wide
+fc_data2 = dcast(fc_data, ID + Group + Box ~ Component.Name, value.var = "Pct.Component.Time.Freezing")
+fc_data2 = merge(fc_data2, animal_details, by="ID")
+
+attach(fc_data)
+attach(fc_data2)
+
+```
+
+
+# Graph things
+
+```{r}
+
+shock_only = fc_data %>%
+  filter(Component.Name == 'POST1' |
+         Component.Name == 'POST2' |
+         Component.Name == 'POST3' |
+         Component.Name == 'POST4') %>%
+  filter(VALENCE == 'SHOCK')
+
+# Graph each component versus the final recall freezing
+shock_only %>%
+  ggplot(aes(Pct.Component.Time.Freezing, FREEZE, color=EXPT)) + geom_point() + facet_wrap(~Component.Name, scales="free") +
+  stat_smooth(method=lm) + theme_classic() + ggtitle("shock only")
+
+# Stats for the above
+shock_only %>%
+  group_by(EXPT, Component.Name) %>%
+  do(tidy(lm(data=., formula = Pct.Component.Time.Freezing ~ FREEZE))) %>%
+  filter(!term=="(Intercept)") %>%
+  mutate(p.value = p.adjust(p.value, method="BH", n=8)) %>%
+  mutate(sig = 
+           case_when(
+             p.value < 0.0005 ~ "***",
+             p.value < 0.005 ~ "**", 
+             p.value < 0.05 ~ "*"
+           ))
+  
+
+# individual animals after each shock
+shock_only %>%
+  ggplot(aes(Component.Name, Pct.Component.Time.Freezing, group=ID, color=EXPT)) + geom_line() + theme_classic()  +
+  ggtitle("shock only")
+
+# average after each shock
+shock_only %>%
+  group_by(EXPT, VALENCE, ID, Component.Name) %>%
+  ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, group=EXPT, color=EXPT) +
+  stat_summary(fun.y = "mean", geom="line") +
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) +
+  theme_classic() + ggtitle("shock only")
+  
+```
+
+
+# RC data
+
+```{r}
+rc_data = read.csv("AGE10-16 RC.csv", header = T)
+rc_data0 = rc_data
+
+rc_data$ID = rc_data$Animal
+rc_data = merge(rc_data, animal_details, by="ID") # merge
+
+# cast components wide
+rc_data2 = dcast(rc_data, ID + Group + Box ~ Component.Name, value.var = "Pct.Component.Time.Freezing")
+rc_data2 = merge(rc_data[1:13], animal_details, by="ID")
+
+
+```
+
+# Graph RC data
+
+```{r}
+rc_shock = rc_data %>%
+  filter(VALENCE=="SHOCK")
+
+rc_shock %>%
+  filter(GROUP=='SAA') %>%
+  ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, group=ID, color=EXPT) + 
+  geom_line() + geom_point() + facet_wrap(EXPT~ID) + theme_minimal() + ggtitle("SAA")
+rc_shock %>%
+  filter(GROUP=='SAB') %>%
+  ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, group=ID, color=EXPT) + 
+  geom_line() + geom_point() + facet_wrap(EXPT~ID) + theme_minimal() + ggtitle("SAB")
+
+ggplot(rc_shock) + aes(Component.Name, Pct.Component.Time.Freezing, group=ID, color=EXPT) + 
+  geom_line() + geom_point() + facet_wrap(~GROUP, ncol=1) + theme_minimal()
+
+```
+
+## What's with the first and last five minutes?
+- I think there are some animals that have extinctions within the 10 min recall trial, so it might be interesting to separate them out and see what happens. 
+- Here I will try to define them and add them separately
+
+```{r}
+
+rc_data %>%
+  mutate(half = ifelse(Component.Name < 6, "0-5 min", "5-10min")) %>%
+  group_by(EXPT, GROUP, ID, half) %>%
+  summarize(percent.freezing = mean(Pct.Component.Time.Freezing)) %>%
+  # spread(half, a) %>%
+  # mutate(diff = first - second) %>%
+  ggplot() + aes(half, percent.freezing, group=ID, color=EXPT) + geom_line() + geom_point() + 
+  facet_wrap(GROUP~EXPT, ncol=4) +
+  theme_minimal()
+
+# Determine whether the freezing went down between first and second half of the 10 minutes
+# If the difference is more than 25% and goes down to less than 5%
+ext.check = rc_data %>%
+  mutate(half = ifelse(Component.Name < 6, "first", "second")) %>%
+  group_by(EXPT, GROUP, ID, half) %>%
+  summarize(percent.freezing = mean(Pct.Component.Time.Freezing)) %>%
+  spread(half, percent.freezing) %>%
+  mutate(was.ext = ifelse(((first - second) > 25) %% second < 5, 1, 0)) %>%
+  group_by(ID) %>%
+  select(c(ID, was.ext))
+merge(rc_data, ext.check, by="ID")
+
+
+```
+
+
+
+
