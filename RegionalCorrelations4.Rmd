@@ -12,7 +12,7 @@ Conditions in this set of graphs:
 - 5. Removed bad freezers from young group
 
 ```{r}
-detach("package:plyr", unload = T)
+# detach("package:plyr", unload = T)
 source("LoadLibs.R")
 library(psych)
 library(RColorBrewer)
@@ -26,41 +26,59 @@ corr.type = "pearson"
 
 ```
 
+# Define functions for getting correlation tests, making heatmaps
+```{r}
+# DEFINE FUNCTION FOR GETTING CORRELATION TEST
+get_corrtest = function(df) {
+  data = df %>%
+    mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
+    ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
+    dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+  
+  cor(data[,2:length(data)], data[,2:length(data)], use=use.method, method=corr.type)
+  # corr.test(cor1)
+}
+
+# DEFINE FUNCTION FOR MAKING HEATMAP
+make_heatmap = function(test.results, title) {
+  # inputs the results from 'get_corrtest'
+  # matrix = test.results$r
+  heatmap(test.results, symm=T, col=brewer.pal(11,"RdBu"), main=title)
+}
+
+```
+
+
 ## Arc
 Major differences between all shock and context animals
 ```{r, fig.width=8, fig.height=8}
 
-a = knew.molten3 %>%
-  filter(VALENCE == 'SHOCK') %>%
-  filter(CHANNEL == 'ArcIHC') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+# MAKE THE GRAPHS
 
-cor1 = cor(a[,2:65], a[,2:65], use=use.method, method=corr.type)
+for (val in levels(unique(knew.molten3$VALENCE))) {
+  a = knew.molten3 %>%
+    filter(VALENCE == val) %>%
+    filter(CHANNEL=="ArcIHC") %>%
+    filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+    get_corrtest()
+  
+  title = paste("all", val, " withlow freezers removed")
+  make_heatmap(a, title)
+}
 
-
-b = corr.test(a[,2:67])
-
-
-heatmap(b$r, symm=T, col=brewer.pal(11,"RdBu"), main="correlation -  all shock arc")
-heatmap(b$p, symm=T, col=rev(brewer.pal(9,"Reds")), main="p-value (Holm) - all shock arc")
-heatmap(b$p/b$r, symm=T, col=rev(brewer.pal(11,"RdBu")), main="p-value (Holm) - all shock arc")
-
-a = knew.molten3 %>%
-  filter(VALENCE == 'CONTEXT') %>%
-  filter(CHANNEL == 'ArcIHC') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
+for (val in levels(unique(knew.molten3$VALENCE))) {
+  a = knew.molten3 %>%
+    filter(VALENCE == val) %>%
+    filter(CHANNEL=="ArcIHC") %>%
+    filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+    get_corrtest()
+  
+  title = paste("all", val, " with low freezers removed")
+  make_heatmap(a, title)
+}
 
 
-cor1 = corr.test(a[,2:67], a[,2:67])
-heatmap(cor1, symm=T, col=brewer.pal(11,"RdBu"), main="all context arc")
+
 
 ```
 
@@ -79,8 +97,6 @@ a = knew.molten3 %>%
 b = corr.test(a[,2:67])
 heatmap(b$r, symm=T, col=brewer.pal(11,"RdBu"), main="correlation -  all shock arc")
 heatmap(b$p, symm=T, col=rev(brewer.pal(3,"Reds")), main="p-value (Holm) - all shock arc")
-
-
 
 cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
 heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="shock AA")
