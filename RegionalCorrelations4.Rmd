@@ -48,39 +48,48 @@ make_heatmap = function(test.results, title) {
 
 ```
 
+# ARCIHC
+```{r}
+# SUBSET FOR ARC ONLY
+arc = knew.molten3 %>% filter(CHANNEL=='ArcIHC')
+```
 
-## Arc
-Major differences between all shock and context animals
+
+## Arc:: VALENCE
 ```{r, fig.width=8, fig.height=8}
 
 # MAKE THE GRAPHS
-
 for (val in levels(unique(knew.molten3$VALENCE))) {
-  a = knew.molten3 %>%
+  title = paste("all ArcIHC, ", val, " withlow freezers removed")
+  a = arc %>%
     filter(VALENCE == val) %>%
-    filter(CHANNEL=="ArcIHC") %>%
     filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
-    get_corrtest()
-  
-  title = paste("all", val, " withlow freezers removed")
-  make_heatmap(a, title)
+    get_corrtest() %>%
+    make_heatmap(., title)
 }
-
-for (val in levels(unique(knew.molten3$VALENCE))) {
-  a = knew.molten3 %>%
-    filter(VALENCE == val) %>%
-    filter(CHANNEL=="ArcIHC") %>%
-    filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
-    get_corrtest()
-  
-  title = paste("all", val, " with low freezers removed")
-  make_heatmap(a, title)
-}
-
-
-
 
 ```
+## Arc:: AGE x VALENCE
+```{r, fig.width=8, fig.height=8}
+
+# MAKE THE GRAPHS
+for (val in levels(unique(knew.molten3$VALENCE))) {
+  for (age in levels(unique(as.factor(knew.molten3$EXPT)))) {
+    
+    title = paste(age, val, "")
+  
+    a = arc %>%
+      filter(VALENCE == val) %>%
+      # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+      get_corrtest() %>%
+      make_heatmap(., title)
+  }
+}
+
+```
+
+
+
 
 
 ### All animals - compare each group
