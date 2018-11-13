@@ -12,6 +12,7 @@ Conditions in this set of graphs:
 - 5. Removed bad freezers from young group
 
 ```{r}
+detach("package:plyr", unload = T)
 source("LoadLibs.R")
 library(psych)
 library(RColorBrewer)
@@ -37,7 +38,7 @@ a = knew.molten3 %>%
   ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
   dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
 
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
+cor1 = cor(a[,2:65], a[,2:65], use=use.method, method=corr.type)
 
 
 b = corr.test(a[,2:67])

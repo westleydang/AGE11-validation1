@@ -213,15 +213,16 @@ tot.lr %>%
 # SYSTEMS analysis 
 
 ## Check normality
-
 ```{r, eval=F}
 # sample 5000 cases
 paratest = sample_n(knew.molten3, 5000)
 
 # check for each System?
 paratest %>% 
-  group_by(GROUP, EXPT, CHANNEL, System) %>%
-  do(tidy(shapiro.test(value)))
+  group_by(CHANNEL, GROUP, EXPT, System, ID) %>%
+  summarize(value = weighted.mean(value, Pop_roiAreaMM2)) %>%
+  group_by(CHANNEL, System) %>% 
+  summarize(p.value = shapiro.test(value)$p.value)
 
 
 ```
