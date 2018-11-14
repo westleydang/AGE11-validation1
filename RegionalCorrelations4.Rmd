@@ -16,6 +16,7 @@ Conditions in this set of graphs:
 source("LoadLibs.R")
 library(psych)
 library(RColorBrewer)
+library(gplots)
 knew.molten3 = knew.molten2 %>%
   filter(UNITS == "density") %>%
   filter(BRIGHTNESS == 'total')
@@ -43,7 +44,15 @@ get_corrtest = function(df) {
 make_heatmap = function(test.results, title) {
   # inputs the results from 'get_corrtest'
   # matrix = test.results$r
-  heatmap(test.results, symm=T, col=brewer.pal(11,"RdBu"), main=title)
+  heatmap.2(test.results, symm=T, col=rev(brewer.pal(11,"RdBu")), main=title, trace="none", revC=T)
+}
+
+
+# DEFINE FUNCTION FOR MAKING HEATMAP FOR NUMBER ANIMALS
+make_heatmap2 = function(test.results, title) {
+  # inputs the results from 'get_corrtest'
+  # matrix = test.results$r
+  heatmap(test.results, symm=T, col=heat.colors, main=title)
 }
 
 ```
@@ -55,7 +64,7 @@ arc = knew.molten3 %>% filter(CHANNEL=='ArcIHC')
 ```
 
 
-## Arc:: VALENCE
+## Arc:: VALENCE (2)
 ```{r, fig.width=8, fig.height=8}
 
 # MAKE THE GRAPHS
@@ -69,7 +78,7 @@ for (val in levels(unique(knew.molten3$VALENCE))) {
 }
 
 ```
-## Arc:: AGE x VALENCE
+## Arc:: AGE x VALENCE (4)
 ```{r, fig.width=8, fig.height=8}
 
 # MAKE THE GRAPHS
@@ -80,6 +89,7 @@ for (val in levels(unique(knew.molten3$VALENCE))) {
   
     a = arc %>%
       filter(VALENCE == val) %>%
+      filter(EXPT == age) %>%
       # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
       get_corrtest() %>%
       make_heatmap(., title)
@@ -88,283 +98,153 @@ for (val in levels(unique(knew.molten3$VALENCE))) {
 
 ```
 
-
-
-
-
-### All animals - compare each group
+## Arc:: AGE x VALENCE x CONTEXT (8)
 
 ```{r, fig.width=8, fig.height=8}
-
-a = knew.molten3 %>%
-  filter(CHANNEL == 'ArcIHC') %>%
-  filter(CONTEXT=='AA' & VALENCE =='SHOCK') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-b = corr.test(a[,2:67])
-heatmap(b$r, symm=T, col=brewer.pal(11,"RdBu"), main="correlation -  all shock arc")
-heatmap(b$p, symm=T, col=rev(brewer.pal(3,"Reds")), main="p-value (Holm) - all shock arc")
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="shock AA")
-
-
-a = knew.molten3 %>%
-  filter(CHANNEL == 'ArcIHC') %>%
-  filter(CONTEXT=='AB' & VALENCE =='SHOCK') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="shock AB")
-
-
-a = knew.molten3 %>%
-  filter(CHANNEL == 'ArcIHC') %>%
-  filter(CONTEXT=='AA' & VALENCE =='CONTEXT') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="ctx AA")
-
-
-a = knew.molten3 %>%
-  filter(CHANNEL == 'ArcIHC') %>%
-  filter(CONTEXT=='AB' & VALENCE =='CONTEXT') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="ctx AB")
-
+for (ctx in levels(unique(knew.molten3$CONTEXT))) {
+  for (val in levels(unique(knew.molten3$VALENCE))) {
+    for (age in levels(unique(as.factor(knew.molten3$EXPT)))) {
+      
+      title = paste(age, val, ctx, "")
+    
+      a = arc %>%
+        filter(VALENCE == val) %>%
+        filter(CONTEXT == ctx) %>%
+        # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+        get_corrtest() %>%
+        make_heatmap(., title)
+    }
+  }
+}
 
 ```
 
-## OL 
-### Old vs Young
+## OL (NormOL)
+```{r}
 
+# SUBSET FOR OL ONLY
+ol = knew.molten3 %>% filter(CHANNEL=='NormOL')
+```
+
+
+
+## OL:: VALENCE (2)
 ```{r, fig.width=8, fig.height=8}
 
-a = knew.molten3 %>%
-  filter(EXPT == 'YOUNG') %>%
-  filter(CHANNEL == 'OL') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+# MAKE THE GRAPHS
+for (val in levels(unique(knew.molten3$VALENCE))) {
+  title = paste("all OL, ", val, " withlow freezers removed")
+  a = ol %>%
+    filter(VALENCE == val) %>%
+    filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+    get_corrtest() %>%
+    make_heatmap(., title)
+}
 
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="all young")
+```
+## OL:: AGE x VALENCE (4)
+```{r, fig.width=8, fig.height=8}
 
-a = knew.molten3 %>%
-  filter(EXPT == 'OLD') %>%
-  filter(CHANNEL == 'OL') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="all old")
+# MAKE THE GRAPHS
+for (val in levels(unique(knew.molten3$VALENCE))) {
+  for (age in levels(unique(as.factor(knew.molten3$EXPT)))) {
+    
+    title = paste(age, val, "")
+  
+    a = ol %>%
+      filter(VALENCE == val) %>%
+      filter(EXPT == age) %>%
+      # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+      get_corrtest() %>%
+      make_heatmap(., title)
+  }
+}
 
 ```
 
-```{r, fig.width=8, fig.height=8}
-
-a = knew.molten3 %>%
-  filter(CONTEXT == 'AA') %>%
-  filter(CHANNEL == 'OL') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="all AA")
-
-a = knew.molten3 %>%
-  filter(CONTEXT == 'AB') %>%
-  filter(CHANNEL == 'OL') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="all AB")
-
-```
+## OL:: AGE x VALENCE x CONTEXT (8)
 
 ```{r, fig.width=8, fig.height=8}
-
-a = knew.molten3 %>%
-  filter(VALENCE == 'SHOCK') %>%
-  filter(CHANNEL == 'OL') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="all shock ol")
-
-a = knew.molten3 %>%
-  filter(VALENCE == 'CONTEXT') %>%
-  filter(CHANNEL == 'OL') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="all context ol")
-
-```
-
-### All animals - Compare each group
-
-
-```{r, fig.width=8, fig.height=8}
-
-a = knew.molten3 %>%
-  filter(CHANNEL == 'OL') %>%
-  filter(CONTEXT=='AA' & VALENCE =='SHOCK') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main=" shock AA")
-
-
-a = knew.molten3 %>%
-  filter(CHANNEL == 'OL') %>%
-  filter(CONTEXT=='AB' & VALENCE =='SHOCK') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main=" shock AB")
-
-
-a = knew.molten3 %>%
-  filter(CHANNEL == 'OL') %>%
-  filter(CONTEXT=='AA' & VALENCE =='CONTEXT') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main=" ctx AA")
-
-
-a = knew.molten3 %>%
-  filter(CHANNEL == 'OL') %>%
-  filter(CONTEXT=='AB' & VALENCE =='CONTEXT') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main=" ctx AB")
-
+for (ctx in levels(unique(knew.molten3$CONTEXT))) {
+  for (val in levels(unique(knew.molten3$VALENCE))) {
+    for (age in levels(unique(as.factor(knew.molten3$EXPT)))) {
+      
+      title = paste(age, val, ctx, "")
+    
+      a = ol %>%
+        filter(VALENCE == val) %>%
+        filter(CONTEXT == ctx) %>%
+        # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+        get_corrtest() %>%
+        make_heatmap(., title)
+    }
+  }
+}
 
 ```
 
 
-## H2BGFP
+## H2BGFP 
+```{r}
 
+# SUBSET FOR OL ONLY
+gfp = knew.molten3 %>% filter(CHANNEL=='H2BGFP')
+```
+
+
+
+## H2BGFP:: VALENCE (2)
 ```{r, fig.width=8, fig.height=8}
 
-a = knew.molten3 %>%
-  filter(VALENCE == 'SHOCK') %>%
-  filter(CHANNEL == 'H2BGFP') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="all shock h2b")
-
-a = knew.molten3 %>%
-  filter(VALENCE == 'CONTEXT') %>%
-  filter(CHANNEL == 'H2BGFP') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="all context h2b")
+# MAKE THE GRAPHS
+for (val in levels(unique(knew.molten3$VALENCE))) {
+  title = paste("all OL, ", val, " withlow freezers removed")
+  a = gfp %>%
+    filter(VALENCE == val) %>%
+    filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+    get_corrtest() %>%
+    make_heatmap(., title)
+}
 
 ```
-### All animals - Compare each group
-
-
+## H2BGFP:: AGE x VALENCE (4)
 ```{r, fig.width=8, fig.height=8}
 
-a = knew.molten3 %>%
-  filter(CHANNEL == 'H2BGFP') %>%
-  filter(CONTEXT=='AA' & VALENCE =='SHOCK') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
+# MAKE THE GRAPHS
+for (val in levels(unique(knew.molten3$VALENCE))) {
+  for (age in levels(unique(as.factor(knew.molten3$EXPT)))) {
+    
+    title = paste(age, val, "")
+  
+    a = gfp %>%
+      filter(VALENCE == val) %>%
+      filter(EXPT == age) %>%
+      # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+      get_corrtest() %>%
+      make_heatmap(., title)
+  }
+}
 
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="shock AA")
+```
 
+## H2BGFP:: AGE x VALENCE x CONTEXT (8)
 
-a = knew.molten3 %>%
-  filter(CHANNEL == 'H2BGFP') %>%
-  filter(CONTEXT=='AB' & VALENCE =='SHOCK') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="shock AB")
-
-
-a = knew.molten3 %>%
-  filter(CHANNEL == 'H2BGFP') %>%
-  filter(CONTEXT=='AA' & VALENCE =='CONTEXT') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="ctx AA")
-
-
-a = knew.molten3 %>%
-  filter(CHANNEL == 'H2BGFP') %>%
-  filter(CONTEXT=='AB' & VALENCE =='CONTEXT') %>%
-  filter(!(EXPT =='YOUNG' & VALENCE=='SHOCK' & CONTEXT=='AA' & FREEZE < 30)) %>% # removes young bad freezers
-  mutate(grain2 = paste(CHANNEL, SubROI_SubroiAGGR)) %>%
-  ddply(.(CHANNEL, SubROI_SubroiAGGR), transform, z = scale(value)) %>%
-  dcast(ID ~ grain2, value.var="z", fun.aggregate = mean) 
-
-cor1 = cor(a[,2:67], a[,2:67], use=use.method, method=corr.type)
-heatmap(cor1, symm=T, Rowv=hr$order, col=brewer.pal(11,"RdBu"), main="ctx AB")
-
+```{r, fig.width=8, fig.height=8}
+for (ctx in levels(unique(knew.molten3$CONTEXT))) {
+  for (val in levels(unique(knew.molten3$VALENCE))) {
+    for (age in levels(unique(as.factor(knew.molten3$EXPT)))) {
+      
+      title = paste(age, val, ctx, "")
+    
+      a = gfp %>%
+        filter(VALENCE == val) %>%
+        filter(CONTEXT == ctx) %>%
+        # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+        get_corrtest() %>%
+        make_heatmap(., title)
+    }
+  }
+}
 
 ```
 
