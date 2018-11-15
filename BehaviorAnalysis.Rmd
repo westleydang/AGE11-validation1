@@ -29,11 +29,10 @@ fc_data2 = merge(fc_data2, animal_details, by="ID")
 attach(fc_data)
 attach(fc_data2)
 
+
 ```
-
-
-# Graph things
-
+# During FC
+## Graph the freezing after each shock
 ```{r}
 
 shock_only = fc_data %>%
@@ -43,42 +42,118 @@ shock_only = fc_data %>%
          Component.Name == 'POST4') %>%
   filter(VALENCE == 'SHOCK')
 
-# Graph each component versus the final recall freezing
-shock_only %>%
-  ggplot(aes(Pct.Component.Time.Freezing, FREEZE, color=EXPT)) + geom_point() + facet_wrap(~Component.Name, scales="free") +
-  stat_smooth(method=lm) + theme_classic() + ggtitle("shock only")
-
-# Stats for the above
-shock_only %>%
-  group_by(EXPT, Component.Name) %>%
-  do(tidy(lm(data=., formula = Pct.Component.Time.Freezing ~ FREEZE))) %>%
-  filter(!term=="(Intercept)") %>%
-  mutate(p.value = p.adjust(p.value, method="BH", n=8)) %>%
-  mutate(sig = 
-           case_when(
-             p.value < 0.0005 ~ "***",
-             p.value < 0.005 ~ "**", 
-             p.value < 0.05 ~ "*"
-           ))
-  
-
 # individual animals after each shock
 shock_only %>%
-  ggplot(aes(Component.Name, Pct.Component.Time.Freezing, group=ID, color=EXPT)) + geom_line() + theme_classic()  +
-  ggtitle("shock only")
+  ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, color=EXPT, group=ID) +
+  facet_wrap(~ID, nrow=4) + geom_point() + geom_line() + theme_minimal() +
+  ggtitle("Individual freezing after each shock",
+          subtitle="Shocked animals only") +
+  xlab("Post-shock periods") + ylab("Percent Freezing") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1))
 
-# average after each shock
+# individual animals after each shock, in one graph
+shock_only %>%
+  ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, color=EXPT, group=ID) +
+  facet_wrap(~EXPT) + geom_point() + geom_line() + theme_minimal() +
+  ggtitle("Individual freezing after each shock",
+          subtitle="Shocked animals only") +
+  xlab("Post-shock periods") + ylab("Percent Freezing")
+
+# Average after each shock, by age
 shock_only %>%
   group_by(EXPT, VALENCE, ID, Component.Name) %>%
   ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, group=EXPT, color=EXPT) +
   stat_summary(fun.y = "mean", geom="line") +
   stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) +
-  theme_classic() + ggtitle("shock only")
-  
+  theme_classic() + 
+  ggtitle("Average freezing after each shock",
+          subtitle="Shocked animals only") +
+  xlab("Post-shock periods") + ylab("Percent Freezing")
+
+# Stats for average after each shock, by age
+shock_only %>%
+  group_by(Component.Name) %>%
+  do(tidy(wilcox.test(data = ., Pct.Component.Time.Freezing ~ EXPT)))
+
+```
+
+## What are anomalies in post-shock freezing?
+```{r}
+avg.psp = shock_only %>%
+  filter(!(Component.Name == 'POST1' | Component.Name == 'POST2')) %>%
+  ddply(.,
+               .(ID), 
+               summarize, 
+               avg = mean(Pct.Component.Time.Freezing))
+
+# Which animals are 1SD below the mean?
+
+avg.psp[avg.psp$avg < mean(avg.psp$avg) - 1.5*sd(avg.psp$avg),]
+
+
+
 ```
 
 
-# RC data
+
+## Does each post-shock period predict the final recall (after 4d)?
+```{r}
+# Subset the shock only mice because that's what we're interested in
+
+
+# Graph each component versus the final recall freezing
+for (ctx in levels(unique(shock_only$CONTEXT))) {
+  print(
+    shock_only %>%
+      filter(CONTEXT==ctx) %>%
+      ggplot(aes(Pct.Component.Time.Freezing, FREEZE, color=EXPT)) + geom_point() + 
+      facet_wrap(~Component.Name, scales="free") +
+      stat_smooth(method=lm) + theme_minimal() + 
+      ggtitle(paste("shock only", ctx)) +
+      ylab("Freezing at final recall (4d)") +
+      xlab("Freezing during training (each shock)")
+  )
+}
+
+# Stats for the above, for AA vs AB
+for (ctx in levels(unique(shock_only$CONTEXT))) {
+  print(
+    shock_only %>%
+    filter(CONTEXT == ctx) %>%
+      group_by(EXPT, CONTEXT, Component.Name) %>%
+      do(tidy(lm(data=., formula = Pct.Component.Time.Freezing ~ FREEZE))) %>%
+      filter(!term=="(Intercept)") %>%
+      mutate(p.value = p.adjust(p.value, method="BH", n=8)) %>%
+      mutate(sig = 
+               case_when(
+                 p.value < 0.0005 ~ "***",
+                 p.value < 0.005 ~ "**", 
+                 p.value < 0.05 ~ "*"
+               ))
+  )
+}
+```
+
+## How does pre-shock periods look in Aged vs Young animals?
+No difference
+```{r}
+
+fc_data %>%
+  filter(Component.Name == "PRE") %>%
+  ggplot() + aes(EXPT, Pct.Component.Time.Freezing, color=EXPT) + 
+  geom_violin() + geom_point() + 
+  stat_summary(fun.y="mean", geom="point") +
+  stat_summary(fun.data="mean_se", geom="errorbar", width=0.2) +
+  theme_minimal() +
+  ggtitle("Freezing during context exploration (before initial shocks)",
+          subtitle="Shocked animals only") +
+  xlab("Age groups") + ylab("Percent Freezing")
+
+# STATS
+```
+
+
+# RC data, load and process
 
 ```{r}
 rc_data = read.csv("AGE10-16 RC.csv", header = T)
@@ -91,26 +166,65 @@ rc_data = merge(rc_data, animal_details, by="ID") # merge
 rc_data2 = dcast(rc_data, ID + Group + Box ~ Component.Name, value.var = "Pct.Component.Time.Freezing")
 rc_data2 = merge(rc_data[1:13], animal_details, by="ID")
 
+rc_avg = ddply(rc_data2,
+               .(Experiment, EXPT, GROUP, VALENCE, CONTEXT, ID), 
+               summarize, 
+               avg.rc = mean(Pct.Component.Time.Freezing))
+
+
 
 ```
 
-# Graph RC data
+## Graph individual recall periods for shocked animals
 
 ```{r}
+
 rc_shock = rc_data %>%
   filter(VALENCE=="SHOCK")
 
-rc_shock %>%
-  filter(GROUP=='SAA') %>%
-  ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, group=ID, color=EXPT) + 
-  geom_line() + geom_point() + facet_wrap(EXPT~ID) + theme_minimal() + ggtitle("SAA")
-rc_shock %>%
-  filter(GROUP=='SAB') %>%
-  ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, group=ID, color=EXPT) + 
-  geom_line() + geom_point() + facet_wrap(EXPT~ID) + theme_minimal() + ggtitle("SAB")
+for (ctx in levels(unique(rc_shock$CONTEXT))) {
+  print(
+      rc_shock %>%
+        filter(CONTEXT == ctx) %>%
+        ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, group=ID, color=EXPT) + 
+        geom_line() + geom_point() + facet_wrap(EXPT~ID, nrow=3) + theme_minimal() + 
+        ggtitle(paste("Shocked animals", ctx)) +
+        xlab("Minute of recall trial (10 min total)") + ylab("Percent Freezing")
+  )
+}
+
+
+
+```
+
+
+```{r}
+
+rc_avg %>%
+  ggplot() + aes(y = avg.rc, x = CONTEXT, color=EXPT) +  geom_violin() +
+  geom_point(position = position_dodge(width=1)) +
+  facet_grid(EXPT~VALENCE) +
+  stat_summary(fun.y = "mean", geom="point", color="black") +
+  stat_summary(fun.data="mean_se", geom="errorbar", color='black', width=0.2) +
+  theme_minimal() 
+
+
+for (val in levels(unique(rc_avg$VALENCE))) {
+  for (ctx in levels(unique(rc_avg$CONTEXT))) {
+    print(
+      rc_avg %>%
+        filter(VALENCE == val) %>%
+        filter(CONTEXT == ctx) %>%
+        ggplot() + aes(x = avg.rc, fill=EXPT) + geom_density(alpha = 0.5) + 
+        geom_vline(aes(xintercept=median(avg.rc)), linetype="dashed", size=1) + 
+        theme_minimal() + ggtitle(paste(val, ctx, " animals, freezing score distribution")) +
+        xlab("Average freezing score in 10 min recall") + xlim(0,100)
+    )
+  }
+}
 
 ggplot(rc_shock) + aes(Component.Name, Pct.Component.Time.Freezing, group=ID, color=EXPT) + 
-  geom_line() + geom_point() + facet_wrap(~GROUP, ncol=1) + theme_minimal()
+  geom_line() + geom_point() + facet_wrap(EXPT~CONTEXT, ncol=2) + theme_minimal()
 
 ```
 
