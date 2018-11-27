@@ -2,17 +2,17 @@
 title: "R Notebook"
 output: html_notebook
 ---
-
+# THESE ARE WITHOUT AGE 15 AND 16
  
 # Load the data, process
 - Question: Do I want the AGE 15 and AGE 16 in this analysis if I haven't put them through the macro yet? 
 ```{r}
 
-library(broom)
-library(reshape2)
-library(ggplot2)
-library(dplyr)
-library(tidyr)
+# library(broom)
+# library(reshape2)
+# library(ggplot2)
+# library(dplyr)
+# library(tidyr)
 
 fc_data = read.csv("AGE10-16 FC.csv", header=T) # source
 
@@ -22,12 +22,18 @@ fc_data$ID = fc_data$Animal # rename to merge
 animal_details = read.csv("animal_details4.csv")
 fc_data = merge(fc_data, animal_details, by="ID") # merge
 
+
+fc_data = fc_data %>%
+  filter(!(SUBEXPT == '15A')) %>%
+  filter(!(SUBEXPT == '16A'))
+
+
 # cast components wide
 fc_data2 = dcast(fc_data, ID + Group + Box ~ Component.Name, value.var = "Pct.Component.Time.Freezing")
 fc_data2 = merge(fc_data2, animal_details, by="ID")
-
-attach(fc_data)
-attach(fc_data2)
+# 
+# attach(fc_data)
+# attach(fc_data2)
 
 
 ```
@@ -134,7 +140,7 @@ for (ctx in levels(unique(shock_only$CONTEXT))) {
 ```
 
 ## How do pre-shock periods look in Aged vs Young animals?
-No difference
+No difference using Wilcoxon Rank Sum (but 0.02 if using Welch's t-test)
 ```{r}
 
 fc_data %>%
@@ -151,9 +157,7 @@ fc_data %>%
 # STATS
 fc_data %>%
   filter(Component.Name == 'PRE') %>%
-  t.test(FREEZE ~ EXPT, data=.)
-
-
+  wilcox.test(FREEZE ~ EXPT, data=.)
 ```
 
 
