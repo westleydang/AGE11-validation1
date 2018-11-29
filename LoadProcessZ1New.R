@@ -73,8 +73,8 @@ knew.molten$CHANNEL = as.factor(knew.molten$CHANNEL)
 knew.molten = knew.molten %>%
   mutate(EXPT = 
            case_when(
-             EXPT == 11 ~ "OLD",
-             EXPT == 10 ~ "YOUNG"
+             AGE > 90 ~ "OLD",
+             AGE < 90 ~ "YOUNG"
            ))
 knew.molten$GRAIN = paste(knew$EXPT, knew$GROUP)
 
