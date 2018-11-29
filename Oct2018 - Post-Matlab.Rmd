@@ -9,10 +9,9 @@ output:
 ---
 
 # Post matlab stuff
-
 ```{r}
 source("LoadLibs.R")
-source("LoadProcessZ1New.R") #ouputs knew.molten (df)
+source("LoadProcessZ1New.R") #outputs knew.molten (df)
 attach(knew.molten)
 
 # Merge more details
@@ -23,7 +22,7 @@ names(group_details)[1] = "GROUP"
 knew.molten2 = merge(knew.molten, freeze_details, by="ID")
 knew.molten2 = merge(knew.molten2, group_details, by="GROUP")
 
-# from now on I'm interesreted in densities and total
+# from now on I'm interested in densities and total
 knew.molten3 = knew.molten2 %>%
   filter(UNITS == "density") %>%
   filter(BRIGHTNESS == 'total')

@@ -22,7 +22,7 @@ fc_data$ID = fc_data$Animal # rename to merge
 animal_details = read.csv("animal_details4.csv")
 fc_data = merge(fc_data, animal_details, by="ID") # merge
 
-
+# OMIT THE 15 AND 16 SUBSETS
 fc_data = fc_data %>%
   filter(!(SUBEXPT == '15A')) %>%
   filter(!(SUBEXPT == '16A'))
@@ -55,15 +55,23 @@ shock_only %>%
   ggtitle("Individual freezing after each shock",
           subtitle="Shocked animals only") +
   xlab("Post-shock periods") + ylab("Percent Freezing") +
-  theme(axis.text.x = element_text(angle = 90, hjust = 1))
+  rx
 
+
+```
+
+```{r}
 # individual animals after each shock, in one graph
 shock_only %>%
   ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, color=EXPT, group=ID) +
-  facet_wrap(~EXPT) + geom_point() + geom_line() + theme_minimal() +
+  facet_wrap(~EXPT) + geom_point(alpha=0.5) + geom_line(alpha=0.5) + theme_minimal() +
   ggtitle("Individual freezing after each shock",
           subtitle="Shocked animals only") +
-  xlab("Post-shock periods") + ylab("Percent Freezing")
+  xlab("Post-shock periods") + ylab("Percent Freezing") + 
+  stat_summary(fun.data="mean_se", geom="errorbar", 
+               color="black", aes(group=Component.Name,width=0.2)) +
+  stat_summary(fun.y="mean", geom="point", 
+               color="black", aes(group=Component.Name,width=0.2))
 
 # Average after each shock, by age
 shock_only %>%
@@ -76,6 +84,11 @@ shock_only %>%
           subtitle="Shocked animals only") +
   xlab("Post-shock periods") + ylab("Percent Freezing")
 
+# Check if the distribution is normal
+shock_only %>%
+  group_by(Component.Name) %>%
+  do(tidy(shapiro.test(.$Pct.Total.Time.Freezing)))
+
 # Stats for average after each shock, by age
 shock_only %>%
   group_by(Component.Name) %>%
@@ -87,12 +100,12 @@ shock_only %>%
 ```{r}
 avg.psp = shock_only %>%
   filter((Component.Name == 'POST4')) %>%
-  ddply(., .(ID), 
+  group_by(EXPT) %>%
+  ddply(., .(ID, GROUP, EXPT), 
          summarize, 
          avg = mean(Pct.Component.Time.Freezing))
 
 # Which animals are 1SD below the mean?
-
 avg.psp[avg.psp$avg < mean(avg.psp$avg) - 1*sd(avg.psp$avg),]
 
 
@@ -236,6 +249,18 @@ ggplot(rc_shock) + aes(Component.Name, Pct.Component.Time.Freezing, group=ID, co
 
 ```
 
+# Stats for RC
+```{r}
+rc_avg %>%
+  filter(VALENCE=='SHOCK') %>%
+  group_by(CONTEXT) %>%
+  do(tidy(wilcox.test(data = ., avg.rc ~ EXPT)))
+
+
+```
+
+
+
 ## What's with the first and last five minutes?
 - I think there are some animals that have extinctions within the 10 min recall trial, so it might be interesting to separate them out and see what happens. 
 - Here I will try to define them and add them separately
@@ -250,7 +275,9 @@ rc_data %>%
   # mutate(diff = first - second) %>%
   ggplot() + aes(half, percent.freezing, group=ID, color=EXPT) + geom_line() + geom_point() + 
   facet_wrap(GROUP~EXPT, ncol=4) +
-  theme_minimal()
+  theme_minimal() +
+  ggtitle("Freezing comparisons between first and second half of recall") +
+  ylab("Percent Freezing")
 
 # Determine whether the freezing went down between first and second half of the 10 minutes
 # If the difference is more than 25% and goes down to less than 5%
@@ -263,7 +290,6 @@ ext.check = rc_data %>%
   group_by(ID) %>%
   select(c(ID, was.ext))
 merge(rc_data, ext.check, by="ID")
-
 
 ```
 

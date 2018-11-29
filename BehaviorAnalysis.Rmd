@@ -8,12 +8,6 @@ output: html_notebook
 - Question: Do I want the AGE 15 and AGE 16 in this analysis if I haven't put them through the macro yet? 
 ```{r}
 
-library(broom)
-library(reshape2)
-library(ggplot2)
-library(dplyr)
-library(tidyr)
-
 fc_data = read.csv("AGE10-16 FC.csv", header=T) # source
 
 fc_data0 = fc_data # back up
