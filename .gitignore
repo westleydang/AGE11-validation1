@@ -9,11 +9,8 @@ June2018.nb.html
 June2018.utf8.md
 
 *.html
-
 *.Rproj
-
 rsconnect/documents/RegionalCorrelations1\.Rmd/rpubs\.com/rpubs/
-
 rsconnect/documents/RegionalCorrelations2\.Rmd/rpubs\.com/rpubs/
-
 *.md
+packrat/lib*/
