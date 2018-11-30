@@ -113,22 +113,25 @@ ts2 = ts1 %>%
   group_by(CHANNEL) %>%
   do(tidy(aov(data=., wm ~ EXPT * VALENCE * CONTEXT)))
 
+# spit out significant values
+ts2 %>%
+  filter(p.value < 1e-2)
+
 # graph it
-for (ch in unique(ts2$CHANNEL)) {
-  print(
-    ts2 %>%
-      filter(CHANNEL==ch) %>%
-      filter(!(term=='Residuals')) %>%
-      ggplot() + aes(reorder(CHANNEL, p.value), -log10(p.value), label=p.value, fill=CHANNEL) +
-      geom_bar(stat="identity") +
-      coord_flip() + theme_minimal() + rx +
-      ggtitle(paste(ch, ",", "(3-way ANOVA)")) +
-      ylab("p-value 10^-x") +
-      xlab("System") +
-      facet_wrap(~term, ncol=1) +
-      geom_hline(yintercept = 2)
-  )
-}
+ts2 %>%
+  filter(!(term=='Residuals')) %>%
+  ggplot() + 
+  aes(reorder(term, p.value), -log10(p.value), label=p.value, fill=CHANNEL) +
+  geom_bar(stat="identity") +
+  coord_flip() + theme_minimal() + rx +
+  ggtitle(paste("3-way ANOVAs")) +
+  ylab("p-value 10^-x") +
+  xlab("System") +
+  facet_wrap(~CHANNEL) +
+  geom_hline(yintercept = 2)
+
+
+
 
 ```
 
@@ -282,13 +285,12 @@ sys.stats = knew.molten3 %>%
   group_by(CHANNEL, System) %>%
   do(tidy(aov(data=.,value ~ EXPT * VALENCE * CONTEXT)))
 
+
 for (tm in unique(ss2$term)) {
-  for (ch in unique(ss2$CHANNEL)) {
     print(
       ss2 %>% 
-        filter(term==tm & CHANNEL==ch) %>% 
+        filter(term==tm) %>% 
         filter(!(term=='Residuals')) %>%
-        filter(CHANNEL==ch) %>%
         mutate(p.value = p.adjust(p.value, method="BH", n = 16)) %>%
         ggplot() + aes(reorder(System, p.value), -log10(p.value), label=p.value, fill=System) + 
         geom_bar(stat="identity") +
@@ -296,13 +298,10 @@ for (tm in unique(ss2$term)) {
         ggtitle(paste(ch, ",", tm, "(3-way ANOVA)")) +
         ylab("p-value 10^-x, Benjamini-Hochberg post-hoc for n=16 systems") +
         xlab("System") +
-        # facet_wrap(~term, ncol=3, scales="free") +
+        facet_wrap(~CHANNEL, ncol=3, scales="free") +
         geom_hline(yintercept = 2)
     )
-  }
 }
-
-
 
 ```
 
