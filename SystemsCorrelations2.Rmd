@@ -1,0 +1,497 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Inter-system correlations - TOTAL
+Conditions in this set of graphs:
+- 1. 'Total' cells only
+- 2. Density measures
+- 3. Correlations use "complete.obs"
+- 4. Ordering by "hclust"
+- 5. Removed bad freezers from young group
+
+```{r}
+source("LoadLibs.R")
+library(corrplot)
+library(ade4) # for mantel test! cor. mat dissimilarity
+knew.molten3 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total') 
+
+cluster.method = "alphabet"
+use.method = "complete.obs"
+
+```
+
+# Define functions for getting correlation tests, making heatmaps
+```{r}
+# DEFINE FUNCTION FOR GETTING CORRELATION TEST
+get_corrtest_sys = function(df) {
+  data = df %>%
+    # mutate(grain2 = paste(CHANNEL, System)) %>%
+    ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
+    dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
+  
+  cor(data[,2:length(data)], data[,2:length(data)], use=use.method, method=corr.type)
+}
+
+
+
+# DEFINE FUNCTION FOR MAKING HEATMAP
+make_heatmap = function(test.results, title) {
+  # inputs the results from 'get_corrtest'
+  # matrix = test.results$r
+  heatmap.2(test.results, symm=T, 
+            col=rev(brewer.pal(11,"RdBu")), main=title, 
+            trace="none", revC=T, margins=c(10,10),
+            key=T, scale="none"
+            )
+}
+
+
+# DEFINE FUNCTION FOR MAKING HEATMAP FOR NUMBER ANIMALS
+make_heatmap2 = function(test.results, title) {
+  # inputs the results from 'get_corrtest'
+  # matrix = test.results$r
+  # heatmap(test.results, symm=T, col=heat.colors, main=title)
+  corrplot(test.results, title=title, order=cluster.method, method="color", mar=c(0,0,1,0),
+           diag=F, tl.pos = "l"
+)
+}
+
+```
+
+# PCA
+
+```{r}
+get_data_matrix = function(df) {
+  data = df %>%
+    # mutate(grain2 = paste(CHANNEL, System)) %>%
+    ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
+    dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
+  data
+}
+
+adm = arc %>% get_data_matrix()
+rownames(adm) = adm$ID
+adm = adm %>% select(2:16)
+pr = prcomp(na.omit(adm), scale=T)
+plot(pr$x[,1], pr$x[,2])
+pr.var = pr$sdev^2
+pr.var.pct = round(pr.var/(sum(pr.var)) * 100, 1)
+barplot(pr.var.pct)
+pr.data = data.frame(Sample=rownames(pr$x), X = pr$x[,1], Y = pr$x[,2])
+ggplot(pr.data) + aes(X, Y, label=Sample) + geom_text()
+pr.load = pr$rotation[,1]
+sys.scores = abs(pr.load)
+sys.scores.ranked = sort(sys.scores, decreasing=T)
+names(sys.scores.ranked)
+pr$rotation[names(sys.scores.ranked),1]
+
+```
+
+
+# ARCIHC
+```{r}
+# SUBSET FOR ARC ONLY
+arc = knew.molten3 %>% filter(CHANNEL=='ArcIHC')
+```
+
+
+## Arc:: VALENCE maps
+```{r}
+
+# MAKE THE GRAPHS
+
+for (val in levels(unique(knew.molten3$VALENCE))) {
+  title = paste("all ArcIHC, ", val)
+  a = arc %>%
+    filter(VALENCE == val) %>%
+    # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+    get_corrtest_sys() %>%
+    make_heatmap2(., title)
+}
+
+```
+
+### Arc::VALENCE stats = **
+```{r}
+
+# Get Z dist of CONTEXT
+av1 = arc %>%
+  filter(VALENCE == 'CONTEXT') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+av2 = arc %>%
+  filter(VALENCE == 'SHOCK') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+data.frame(var = c(rep("context", length(av1)), rep("shock", length(av2))), values =  c(as.vector(av1), as.vector(av2))) %>%
+  ggplot() + aes(values, group=var, color=var) + geom_density() + 
+  theme_minimal() + xlim(-1,1)
+
+av21 = av2 - av1
+make_heatmap2(as.matrix(av21), "Difference (SHK - CTX)")
+
+mantel(av1, av2) #p < 0.01 simulated
+
+```
+
+
+## Arc::EXPT maps 
+```{r, fig.width=5, fig.height=5}
+
+# MAKE THE GRAPHS
+for (age in (unique(knew.molten3$EXPT))) {
+  title = paste("all ArcIHC, ", age)
+  a = arc %>%
+    filter(EXPT == age) %>%
+    # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+    get_corrtest_sys() %>%
+    make_heatmap2(., title)
+}
+
+```
+
+### Arc::EXPT = ns
+```{r}
+
+# Get Z dist of CONTEXT
+arc.age1 = arc %>%
+  filter(EXPT == 'YOUNG') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+arc.age2 = arc %>%
+  filter(EXPT == 'OLD') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+arc.age21 = arc.age2 - arc.age1
+make_heatmap2(as.matrix(arc.age21), "Difference (Old - Young)")
+sum(abs((as.matrix(arc.age21))))
+
+
+data.frame(var = c(rep("young", length(arc.age1)), rep("aged", length(arc.age2))), values =  c(as.vector(arc.age1),as.vector(arc.age2))) %>%
+  ggplot() + aes(values, group=var, color=var) + geom_density() + 
+  theme_minimal() + xlim(-1,1)
+
+mantel(arc.age1, arc.age2)
+
+t.test(as.vector(arc.age1), as.vector(arc.age2), paired=T)
+
+```
+
+
+
+## Arc - EXPT:VALENCE Mantel test
+```{r}
+
+arc.ys = arc %>%
+  filter(EXPT=='YOUNG') %>%
+  filter(VALENCE=='SHOCK') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+arc.yc = arc %>%
+  filter(EXPT=='YOUNG') %>%
+  filter(VALENCE=='CONTEXT') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+arc.os = arc %>%
+  filter(EXPT=='OLD') %>%
+  filter(VALENCE=='SHOCK') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+arc.oc = arc %>%
+  filter(EXPT=='OLD') %>%
+  filter(VALENCE=='CONTEXT') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+```
+
+
+### Arc Young CTX vs SHK = **
+```{r, fig.height=1, fig.width=2}
+ysyc = arc.ys - arc.yc
+make_heatmap2(as.matrix(ysyc),"diff ys - yc" )
+
+data.frame(var = c(rep("young ctx", length(arc.yc)), rep("young shk", length(arc.ys))), values =  c(as.vector(arc.yc),as.vector(arc.ys))) %>%
+  ggplot() + aes(values, group=var, color=var) + geom_density() + 
+  theme_minimal() + xlim(-1,1)
+
+mantel.rtest(arc.ys, arc.yc)
+```
+
+### Arc Old CTX vs SHK = ns
+```{r, fig.height=1, fig.width=2}
+data.frame(var = c(rep("aged ctx", length(arc.oc)), rep("aged shk", length(arc.os))), values =  c(as.vector(arc.oc),as.vector(arc.os))) %>%
+  ggplot() + aes(values, group=var, color=var) + geom_density() + 
+  theme_minimal() + xlim(-1,1)
+
+mantel.rtest(arc.os, arc.oc)
+```
+
+
+
+
+
+# H2BGFP
+```{r}
+# SUBSET FOR ARC ONLY
+gfp = knew.molten3 %>% filter(CHANNEL=='H2BGFP')
+```
+
+
+## GFP:: VALENCE maps
+```{r, fig.width=5, fig.height=5}
+
+# MAKE THE GRAPHS
+for (val in levels(unique(knew.molten3$VALENCE))) {
+  title = paste("all H2BGFP, ", val, " withlow freezers removed")
+  g = gfp %>%
+    filter(VALENCE == val) %>%
+    filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+    get_corrtest_sys() %>%
+    make_heatmap2(., title)
+}
+
+```
+
+### GFP::VALENCE stats = **
+```{r}
+
+# Get Z dist of CONTEXT
+gv1 = gfp %>%
+  filter(VALENCE == 'CONTEXT') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+gv2 = gfp %>%
+  filter(VALENCE == 'SHOCK') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+gv21 = gv2 - gv1
+make_heatmap2(as.matrix(gv21), "difference shk - ctx")
+
+mantel.rtest(gv1, gv2) #p < 0.01 simulated
+t.test(as.vector(gv1), as.vector(gv2), paired=T)
+
+
+```
+
+
+## GFP::EXPT maps 
+```{r, fig.width=5, fig.height=5}
+
+# MAKE THE GRAPHS
+for (age in (unique(knew.molten3$EXPT))) {
+  title = paste("all ArcIHC, ", age, " withlow freezers removed")
+  g = gfp %>%
+    filter(EXPT == age) %>%
+    # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+    get_corrtest_sys() %>%
+    make_heatmap(., title)
+}
+
+```
+
+### GFP::EXPT = **
+```{r}
+
+# Get Z dist of CONTEXT
+gfp.age1 = gfp %>%
+  filter(EXPT == 'OLD') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+gfp.age2 = gfp %>%
+  filter(EXPT == 'YOUNG') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+mantel.rtest(gfp.age2, abs(gfp.age2)-1)
+make_heatmap2(as.matrix(abs(gfp.age2)-1), "")
+
+wd1 = dist( matrix(c(1:3, 3:5, 5:7), nrow=3))
+wd2 = dist( matrix(c(1:3, 3:5, 5:7), nrow=3))
+cortest.normal(as.matrix(av1), as.matrix(av2))
+
+t.test(as.vector(arc.age1), as.vector(arc.age2), paired=T)
+```
+
+
+
+## GFP - EXPT:VALENCE Mantel test
+```{r}
+
+gfp.ys = gfp %>%
+  filter(EXPT=='YOUNG') %>%
+  filter(VALENCE=='SHOCK') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+gfp.yc = gfp %>%
+  filter(EXPT=='YOUNG') %>%
+  filter(VALENCE=='CONTEXT') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+gfp.os = gfp %>%
+  filter(EXPT=='OLD') %>%
+  filter(VALENCE=='SHOCK') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+gfp.oc = gfp %>%
+  filter(EXPT=='OLD') %>%
+  filter(VALENCE=='CONTEXT') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+```
+
+
+### gfp Young CTX vs SHK = *
+```{r}
+
+mantel.rtest(gfp.ys, gfp.yc)
+```
+
+### gfp Old CTX vs SHK = **
+```{r}
+
+mantel.rtest(gfp.os, gfp.oc)
+```
+
+
+
+# NormOL
+```{r}
+# SUBSET FOR ARC ONLY
+nol = knew.molten3 %>% filter(CHANNEL=='NormOL')
+```
+
+
+## NormOL:: VALENCE maps
+```{r, fig.width=5, fig.height=5}
+
+# MAKE THE GRAPHS
+for (val in levels(unique(knew.molten3$VALENCE))) {
+  title = paste("all NormOL, ", val, " withlow freezers removed")
+  n = nol %>%
+    filter(VALENCE == val) %>%
+    filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+    get_corrtest_sys() %>%
+    make_heatmap(., title)
+}
+
+```
+
+### NormOL::VALENCE stats = ns
+```{r}
+
+# Get Z dist of CONTEXT
+nv1 = nol %>%
+  filter(VALENCE == 'CONTEXT') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+av2 = nol %>%
+  filter(VALENCE == 'SHOCK') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+mantel.rtest(av1, av2) #p < 0.01 simulated
+
+```
+
+
+## NormOL::EXPT maps 
+```{r, fig.width=5, fig.height=5}
+
+# MAKE THE GRAPHS
+for (age in (unique(knew.molten3$EXPT))) {
+  title = paste("all NormOL, ", age, " withlow freezers removed")
+  a = nol %>%
+    filter(EXPT == age) %>%
+    # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
+    get_corrtest_sys() %>%
+    make_heatmap(., title)
+}
+
+```
+
+### NormOL::EXPT = **
+```{r}
+
+# Get Z dist of CONTEXT
+nol.age1 = nol %>%
+  filter(EXPT == 'OLD') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+nol.age2 = nol %>%
+  filter(EXPT == 'YOUNG') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+mantel.rtest(nol.age1, nol.age2)
+
+```
+
+## NormOL - EXPT:VALENCE Mantel test
+```{r}
+
+nol.ys = nol %>%
+  filter(EXPT=='YOUNG') %>%
+  filter(VALENCE=='SHOCK') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+nol.yc = nol %>%
+  filter(EXPT=='YOUNG') %>%
+  filter(VALENCE=='CONTEXT') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+nol.os = nol %>%
+  filter(EXPT=='OLD') %>%
+  filter(VALENCE=='SHOCK') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+nol.oc = nol %>%
+  filter(EXPT=='OLD') %>%
+  filter(VALENCE=='CONTEXT') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+```
+
+
+### NormOL Young CTX vs SHK = **
+```{r}
+
+mantel.rtest(nol.ys, nol.yc)
+```
+
+### NormOL Old CTX vs SHK = **
+```{r}
+
+mantel.rtest(nol.os, nol.oc)
+```
+
+
+
+```{r}
+
+```
+
