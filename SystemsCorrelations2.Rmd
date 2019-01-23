@@ -19,8 +19,12 @@ knew.molten3 = knew.molten2 %>%
   filter(UNITS == "density") %>%
   filter(BRIGHTNESS == 'total') 
 
+library(corrplot)
+library(Hmisc)
+library(psych)
 cluster.method = "alphabet"
 use.method = "complete.obs"
+corr.type="pearson"
 
 ```
 
@@ -33,9 +37,10 @@ get_corrtest_sys = function(df) {
     ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
     dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
   
-  cor(data[,2:length(data)], data[,2:length(data)], use=use.method, method=corr.type)
+  # cor(data[,2:length(data)], data[,2:length(data)], use=use.method, method=corr.type)
+    rcorr(as.matrix(data[,2:length(data)]), type=corr.type)
+  
 }
-
 
 
 # DEFINE FUNCTION FOR MAKING HEATMAP
@@ -55,10 +60,58 @@ make_heatmap2 = function(test.results, title) {
   # inputs the results from 'get_corrtest'
   # matrix = test.results$r
   # heatmap(test.results, symm=T, col=heat.colors, main=title)
-  corrplot(test.results, title=title, order=cluster.method, method="color", mar=c(0,0,1,0),
-           diag=F, tl.pos = "l"
-)
+  
+  p = p.adjust(test.results$P, "fdr")
+  
+  corrplot(test.results$r, title=title, insig="blank", p.mat=test.results$P, sig.level=0.05,
+           order=cluster.method, method="color", mar=c(0,0,1,0),
+           diag=T, tl.pos = "l")
 }
+make_heatmap2(av1,"")
+
+
+
+
+compare_matrix_r = function(x,y, namex, namey) {
+  
+  # MAKE COR MATS
+  make_heatmap2(x, namex)
+  make_heatmap2(y, namey)
+  
+  # PRINT T-TEST PAIRED
+  x.vector = as.vector(x$r[lower.tri(x$r, diag=F)])
+  y.vector = as.vector(y$r[lower.tri(y$r, diag=F)])
+  print(t.test(fisherz(x.vector), 
+               fisherz(y.vector), 
+               paired=T))
+  
+  # PLOT DISTRIBUTION OF R VALUES
+  df = data.frame(var = c(rep(namex, length(x.vector)), rep(namey, length(y.vector))), 
+               values = c(x.vector, y.vector)) 
+  print(
+    df %>%
+      ggplot() + aes(values, group=var, color=var) + geom_density() + 
+      theme_minimal() + xlim(-1,1)
+  )
+  
+  # PRINT DIFFERENCE MATRIX
+  yx = y$r - x$r
+  title = paste("Difference (", namey, " - ", namex, ")")
+  corrplot(yx, title=title, order=cluster.method, method="color", 
+           mar=c(0,0,1,0), diag=T, tl.pos = "l")
+
+
+  # print(cor.test(x,y))
+  
+  print(
+    df %>%
+      ggplot() + aes(var, values) +
+      stat_summary(fun.y = "mean", geom="bar") +
+      stat_summary(fun.data = "mean_se", geom="errorbar") +
+      theme_minimal())
+
+}
+
 
 ```
 
@@ -115,28 +168,22 @@ for (val in levels(unique(knew.molten3$VALENCE))) {
 
 ```
 
-### Arc::VALENCE stats = **
+### Arc::VALENCE stats = ns
 ```{r}
 
 # Get Z dist of CONTEXT
 av1 = arc %>%
   filter(VALENCE == 'CONTEXT') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
 av2 = arc %>%
   filter(VALENCE == 'SHOCK') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
-data.frame(var = c(rep("context", length(av1)), rep("shock", length(av2))), values =  c(as.vector(av1), as.vector(av2))) %>%
-  ggplot() + aes(values, group=var, color=var) + geom_density() + 
-  theme_minimal() + xlim(-1,1)
 
-av21 = av2 - av1
-make_heatmap2(as.matrix(av21), "Difference (SHK - CTX)")
 
-mantel(av1, av2) #p < 0.01 simulated
+compare_matrix_r(av1, av2, "context", "shock")
+
 
 ```
 
@@ -156,32 +203,22 @@ for (age in (unique(knew.molten3$EXPT))) {
 
 ```
 
-### Arc::EXPT = ns
+### Arc::EXPT = ***
 ```{r}
 
 # Get Z dist of CONTEXT
 arc.age1 = arc %>%
   filter(EXPT == 'YOUNG') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys() 
 
 arc.age2 = arc %>%
   filter(EXPT == 'OLD') %>%
-  get_corrtest_sys() %>%
-  as.dist()
-
-arc.age21 = arc.age2 - arc.age1
-make_heatmap2(as.matrix(arc.age21), "Difference (Old - Young)")
-sum(abs((as.matrix(arc.age21))))
+  get_corrtest_sys() 
 
 
-data.frame(var = c(rep("young", length(arc.age1)), rep("aged", length(arc.age2))), values =  c(as.vector(arc.age1),as.vector(arc.age2))) %>%
-  ggplot() + aes(values, group=var, color=var) + geom_density() + 
-  theme_minimal() + xlim(-1,1)
+compare_matrix_r(arc.age1, arc.age2, "young", "old")
 
-mantel(arc.age1, arc.age2)
 
-t.test(as.vector(arc.age1), as.vector(arc.age2), paired=T)
 
 ```
 
@@ -193,49 +230,36 @@ t.test(as.vector(arc.age1), as.vector(arc.age2), paired=T)
 arc.ys = arc %>%
   filter(EXPT=='YOUNG') %>%
   filter(VALENCE=='SHOCK') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
 arc.yc = arc %>%
   filter(EXPT=='YOUNG') %>%
   filter(VALENCE=='CONTEXT') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
 arc.os = arc %>%
   filter(EXPT=='OLD') %>%
   filter(VALENCE=='SHOCK') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
 arc.oc = arc %>%
   filter(EXPT=='OLD') %>%
   filter(VALENCE=='CONTEXT') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
 ```
 
 
-### Arc Young CTX vs SHK = **
+### Arc Young CTX vs SHK = ***
 ```{r, fig.height=1, fig.width=2}
-ysyc = arc.ys - arc.yc
-make_heatmap2(as.matrix(ysyc),"diff ys - yc" )
 
-data.frame(var = c(rep("young ctx", length(arc.yc)), rep("young shk", length(arc.ys))), values =  c(as.vector(arc.yc),as.vector(arc.ys))) %>%
-  ggplot() + aes(values, group=var, color=var) + geom_density() + 
-  theme_minimal() + xlim(-1,1)
-
-mantel.rtest(arc.ys, arc.yc)
+compare_matrix_r(arc.yc, arc.ys, "youngCTX", "youngSHK")
 ```
 
 ### Arc Old CTX vs SHK = ns
 ```{r, fig.height=1, fig.width=2}
-data.frame(var = c(rep("aged ctx", length(arc.oc)), rep("aged shk", length(arc.os))), values =  c(as.vector(arc.oc),as.vector(arc.os))) %>%
-  ggplot() + aes(values, group=var, color=var) + geom_density() + 
-  theme_minimal() + xlim(-1,1)
 
-mantel.rtest(arc.os, arc.oc)
+compare_matrix_r(arc.oc, arc.os, "oldCTX", "oldSHK")
 ```
 
 
@@ -264,25 +288,19 @@ for (val in levels(unique(knew.molten3$VALENCE))) {
 
 ```
 
-### GFP::VALENCE stats = **
+### GFP::VALENCE stats = ***
 ```{r}
 
 # Get Z dist of CONTEXT
 gv1 = gfp %>%
   filter(VALENCE == 'CONTEXT') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
 gv2 = gfp %>%
   filter(VALENCE == 'SHOCK') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
-gv21 = gv2 - gv1
-make_heatmap2(as.matrix(gv21), "difference shk - ctx")
-
-mantel.rtest(gv1, gv2) #p < 0.01 simulated
-t.test(as.vector(gv1), as.vector(gv2), paired=T)
+compare_matrix_r(gv1, gv2, "context", "shock")
 
 
 ```
@@ -303,28 +321,19 @@ for (age in (unique(knew.molten3$EXPT))) {
 
 ```
 
-### GFP::EXPT = **
+### GFP::EXPT = ns
 ```{r}
 
 # Get Z dist of CONTEXT
 gfp.age1 = gfp %>%
-  filter(EXPT == 'OLD') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  filter(EXPT == 'YOUNG') %>%
+  get_corrtest_sys() 
 
 gfp.age2 = gfp %>%
-  filter(EXPT == 'YOUNG') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  filter(EXPT == 'OLD') %>%
+  get_corrtest_sys()
 
-mantel.rtest(gfp.age2, abs(gfp.age2)-1)
-make_heatmap2(as.matrix(abs(gfp.age2)-1), "")
-
-wd1 = dist( matrix(c(1:3, 3:5, 5:7), nrow=3))
-wd2 = dist( matrix(c(1:3, 3:5, 5:7), nrow=3))
-cortest.normal(as.matrix(av1), as.matrix(av2))
-
-t.test(as.vector(arc.age1), as.vector(arc.age2), paired=T)
+compare_matrix_r(gfp.age1, gfp.age2, "young", "old")
 ```
 
 
@@ -395,21 +404,19 @@ for (val in levels(unique(knew.molten3$VALENCE))) {
 
 ```
 
-### NormOL::VALENCE stats = ns
+### NormOL::VALENCE stats = **
 ```{r}
 
 # Get Z dist of CONTEXT
 nv1 = nol %>%
   filter(VALENCE == 'CONTEXT') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys() 
 
-av2 = nol %>%
+nv2 = nol %>%
   filter(VALENCE == 'SHOCK') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys() 
 
-mantel.rtest(av1, av2) #p < 0.01 simulated
+compare_matrix_r(nv1, nv2, "context", "shock")
 
 ```
 
@@ -429,21 +436,21 @@ for (age in (unique(knew.molten3$EXPT))) {
 
 ```
 
-### NormOL::EXPT = **
+### NormOL::EXPT = ns
 ```{r}
 
 # Get Z dist of CONTEXT
 nol.age1 = nol %>%
-  filter(EXPT == 'OLD') %>%
-  get_corrtest_sys() %>%
-  as.dist()
-
-nol.age2 = nol %>%
   filter(EXPT == 'YOUNG') %>%
   get_corrtest_sys() %>%
   as.dist()
 
-mantel.rtest(nol.age1, nol.age2)
+nol.age2 = nol %>%
+  filter(EXPT == 'OLD') %>%
+  get_corrtest_sys() %>%
+  as.dist()
+
+compare_matrix_r(nol.age1, nol.age2, "young", "old")
 
 ```
 
