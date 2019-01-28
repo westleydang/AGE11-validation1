@@ -1,3 +1,6 @@
+## PURPOSE:
+## The goal of this macro is to change bregma of filenames
+## to match the ones that have already been corrected before. 
 
 
 # Load libraries

@@ -22,7 +22,7 @@ knew.molten3 = knew.molten2 %>%
 library(corrplot)
 library(Hmisc)
 library(psych)
-cluster.method = "alphabet"
+cluster.method = "hclust"
 use.method = "complete.obs"
 corr.type="pearson"
 
@@ -39,7 +39,6 @@ get_corrtest_sys = function(df) {
   
   # cor(data[,2:length(data)], data[,2:length(data)], use=use.method, method=corr.type)
     rcorr(as.matrix(data[,2:length(data)]), type=corr.type)
-  
 }
 
 
@@ -63,14 +62,10 @@ make_heatmap2 = function(test.results, title) {
   
   p = p.adjust(test.results$P, "fdr")
   
-  corrplot(test.results$r, title=title, insig="blank", p.mat=test.results$P, sig.level=0.05,
+  corrplot(test.results$r, title=title, insig="pch", pch="x", p.mat=test.results$P, sig.level=0.05,
            order=cluster.method, method="color", mar=c(0,0,1,0),
            diag=T, tl.pos = "l")
 }
-make_heatmap2(av1,"")
-
-
-
 
 compare_matrix_r = function(x,y, namex, namey) {
   
@@ -91,14 +86,15 @@ compare_matrix_r = function(x,y, namex, namey) {
   print(
     df %>%
       ggplot() + aes(values, group=var, color=var) + geom_density() + 
-      theme_minimal() + xlim(-1,1)
+      theme_minimal() + xlim(-1,1) + xlab("Pearson's R") +
+      ylab("Frequency") + ggtitle("Distribution of R values")
   )
   
   # PRINT DIFFERENCE MATRIX
   yx = y$r - x$r
   title = paste("Difference (", namey, " - ", namex, ")")
   corrplot(yx, title=title, order=cluster.method, method="color", 
-           mar=c(0,0,1,0), diag=T, tl.pos = "l")
+           mar=c(0,0,1,0), diag=T, tl.pos = "l") 
 
 
   # print(cor.test(x,y))
@@ -115,32 +111,74 @@ compare_matrix_r = function(x,y, namex, namey) {
 
 ```
 
-# PCA
+# PCA for ArcIHC
 
 ```{r}
 get_data_matrix = function(df) {
   data = df %>%
     # mutate(grain2 = paste(CHANNEL, System)) %>%
-    ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
-    dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
+    ddply(.(System), transform, z = scale(value, center=T)) %>%
+    dcast(ID ~ System, value.var="z", fun.aggregate = mean, .drop=T) 
   data
 }
 
-adm = arc %>% get_data_matrix()
-rownames(adm) = adm$ID
-adm = adm %>% select(2:16)
-pr = prcomp(na.omit(adm), scale=T)
-plot(pr$x[,1], pr$x[,2])
-pr.var = pr$sdev^2
-pr.var.pct = round(pr.var/(sum(pr.var)) * 100, 1)
-barplot(pr.var.pct)
-pr.data = data.frame(Sample=rownames(pr$x), X = pr$x[,1], Y = pr$x[,2])
-ggplot(pr.data) + aes(X, Y, label=Sample) + geom_text()
-pr.load = pr$rotation[,1]
-sys.scores = abs(pr.load)
-sys.scores.ranked = sort(sys.scores, decreasing=T)
-names(sys.scores.ranked)
-pr$rotation[names(sys.scores.ranked),1]
+get_pca = function(df, dfname) {
+  
+  adm = df %>% get_data_matrix()
+  adm[is.na(adm)] = 0
+  rownames(adm) = adm$ID # make ID the rownames
+  adm = adm %>% select(2:16) # remove ID
+  pr = prcomp(na.omit(adm), scale=T)
+  print(summary(pr))
+  print(biplot(pr))
+  
+  
+  plot(pr$x[,1], pr$x[,2]) # 
+  pr.var = pr$sdev^2 # get variance by squaring eigenvalues
+  pr.var.pct = round(pr.var/(sum(pr.var)) * 100, 1) # get variance %
+  
+  print(
+  data.frame(name = paste(1:length(pr.var.pct)), percent = pr.var.pct) %>%
+    ggplot() + geom_bar(stat="identity", show.legend = F) + aes(sort(as.numeric(name), decreasing=F), percent, fill=name) + 
+    ggtitle(paste(dfname, "- Scree plot")) + 
+    xlab("Principal Component") + ylab("% variance explained") + 
+    theme_minimal()
+)
+  
+  
+  pr.data = data.frame(Sample=rownames(pr$x), X = pr$x[,1], Y = pr$x[,2])
+  pr.data$ID = pr.data$Sample
+  
+  pr.data=merge(pr.data, animal_details[2:length(animal_details)])
+  pr.data$GRAIN = paste(pr.data$GROUP, pr.data$VALENCE)
+  
+  
+  # PRINT SOME GRAPHS
+  
+  print(
+    ggplot(pr.data) + aes(X, Y, label=GRAIN,color=GRAIN) + geom_point() + theme_minimal()  + stat_ellipse() + facet_wrap(~EXPT) +
+    xlab("PC1") + ylab("PC2") + ggtitle(paste(dfname,"PCA by experimental group"))
+  )
+  
+  print(
+    ggplot(pr.data) + aes(X, Y, label=FREEZE,color=VALENCE) + geom_text() + theme_minimal() + stat_ellipse() +
+      xlab("PC1") + ylab("PC2") + ggtitle(paste(dfname, "Component space, by shock/context, labeled freezing score"))
+  )
+    
+  print(
+    ggplot(pr.data) + aes(X, Y, label=FREEZE,color=EXPT) + geom_text() + theme_minimal() + stat_ellipse() + 
+      xlab("PC1") + ylab("PC2") + ggtitle(paste(dfname, "Component space, by young/old, labeled freezing score"))
+  )
+  
+  pr.load = pr$rotation[,1] # PC1
+  sys.scores = abs(pr.load)
+  sys.scores.ranked = sort(sys.scores, decreasing=T)
+  as.matrix(pr.load[names(sys.scores.ranked)])
+
+}
+
+
+get_pca(arc, "ArcIHC")
 
 ```
 
@@ -149,23 +187,6 @@ pr$rotation[names(sys.scores.ranked),1]
 ```{r}
 # SUBSET FOR ARC ONLY
 arc = knew.molten3 %>% filter(CHANNEL=='ArcIHC')
-```
-
-
-## Arc:: VALENCE maps
-```{r}
-
-# MAKE THE GRAPHS
-
-for (val in levels(unique(knew.molten3$VALENCE))) {
-  title = paste("all ArcIHC, ", val)
-  a = arc %>%
-    filter(VALENCE == val) %>%
-    # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
-    get_corrtest_sys() %>%
-    make_heatmap2(., title)
-}
-
 ```
 
 ### Arc::VALENCE stats = ns
@@ -180,26 +201,8 @@ av2 = arc %>%
   filter(VALENCE == 'SHOCK') %>%
   get_corrtest_sys()
 
-
-
 compare_matrix_r(av1, av2, "context", "shock")
 
-
-```
-
-
-## Arc::EXPT maps 
-```{r, fig.width=5, fig.height=5}
-
-# MAKE THE GRAPHS
-for (age in (unique(knew.molten3$EXPT))) {
-  title = paste("all ArcIHC, ", age)
-  a = arc %>%
-    filter(EXPT == age) %>%
-    # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
-    get_corrtest_sys() %>%
-    make_heatmap2(., title)
-}
 
 ```
 
@@ -265,27 +268,11 @@ compare_matrix_r(arc.oc, arc.os, "oldCTX", "oldSHK")
 
 
 
-
 # H2BGFP
 ```{r}
 # SUBSET FOR ARC ONLY
 gfp = knew.molten3 %>% filter(CHANNEL=='H2BGFP')
-```
-
-
-## GFP:: VALENCE maps
-```{r, fig.width=5, fig.height=5}
-
-# MAKE THE GRAPHS
-for (val in levels(unique(knew.molten3$VALENCE))) {
-  title = paste("all H2BGFP, ", val, " withlow freezers removed")
-  g = gfp %>%
-    filter(VALENCE == val) %>%
-    filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
-    get_corrtest_sys() %>%
-    make_heatmap2(., title)
-}
-
+get_pca(gfp, "H2BGFP")
 ```
 
 ### GFP::VALENCE stats = ***
@@ -305,21 +292,6 @@ compare_matrix_r(gv1, gv2, "context", "shock")
 
 ```
 
-
-## GFP::EXPT maps 
-```{r, fig.width=5, fig.height=5}
-
-# MAKE THE GRAPHS
-for (age in (unique(knew.molten3$EXPT))) {
-  title = paste("all ArcIHC, ", age, " withlow freezers removed")
-  g = gfp %>%
-    filter(EXPT == age) %>%
-    # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
-    get_corrtest_sys() %>%
-    make_heatmap(., title)
-}
-
-```
 
 ### GFP::EXPT = ns
 ```{r}
@@ -386,23 +358,9 @@ mantel.rtest(gfp.os, gfp.oc)
 ```{r}
 # SUBSET FOR ARC ONLY
 nol = knew.molten3 %>% filter(CHANNEL=='NormOL')
+get_pca(nol, "NormOL")
 ```
 
-
-## NormOL:: VALENCE maps
-```{r, fig.width=5, fig.height=5}
-
-# MAKE THE GRAPHS
-for (val in levels(unique(knew.molten3$VALENCE))) {
-  title = paste("all NormOL, ", val, " withlow freezers removed")
-  n = nol %>%
-    filter(VALENCE == val) %>%
-    filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
-    get_corrtest_sys() %>%
-    make_heatmap(., title)
-}
-
-```
 
 ### NormOL::VALENCE stats = **
 ```{r}
@@ -421,34 +379,17 @@ compare_matrix_r(nv1, nv2, "context", "shock")
 ```
 
 
-## NormOL::EXPT maps 
-```{r, fig.width=5, fig.height=5}
-
-# MAKE THE GRAPHS
-for (age in (unique(knew.molten3$EXPT))) {
-  title = paste("all NormOL, ", age, " withlow freezers removed")
-  a = nol %>%
-    filter(EXPT == age) %>%
-    # filter(!(EXPT =='YOUNG' & GROUP=='SAA' & FREEZE < 30)) %>% # removes young bad freezers
-    get_corrtest_sys() %>%
-    make_heatmap(., title)
-}
-
-```
-
 ### NormOL::EXPT = ns
 ```{r}
 
 # Get Z dist of CONTEXT
 nol.age1 = nol %>%
   filter(EXPT == 'YOUNG') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
 nol.age2 = nol %>%
   filter(EXPT == 'OLD') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
 compare_matrix_r(nol.age1, nol.age2, "young", "old")
 

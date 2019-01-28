@@ -3,7 +3,7 @@
 # Load the raw file, exclude and revise, and refactor for KK's macro
 
 source("LoadLibs.R")
-source("LoadProcessRAW-Sep2018.R")
+source("LoadProcessRAW-Dec2018.R")
 
 # Get the variables and their order from a file that was FOR SURE
 # worked with KK's Matlab script in the past. This is to ensure
@@ -15,4 +15,4 @@ a = read.csv("OUTPUT/wes_rawz1b.csv", header=T)
 rawz1.toexport = raw.z1[,names(a[2:55])]
 
 # Save the csv files
-write.csv(rawz1.toexport, "OUTPUT/WES_rawz1_sep06.csv")
+write.csv(rawz1.toexport, "OUTPUT/WES_rawz1_dec18.csv") # CHANGE THIS

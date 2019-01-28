@@ -293,6 +293,12 @@ merge(rc_data, ext.check, by="ID")
 
 ```
 
+Compare first 5 vs the whole 10 minutes
+```{r}
+  
+
+```
+
 
 
 
