@@ -181,7 +181,12 @@ rc_data = read.csv("AGE10-16 RC.csv", header = T)
 rc_data0 = rc_data
 
 rc_data$ID = rc_data$Animal
+
+
 rc_data = merge(rc_data, animal_details, by="ID") # merge
+rc_data = rc_data %>%
+  filter(!(SUBEXPT == '15A')) %>%
+  filter(!(SUBEXPT == '16A'))
 
 # cast components wide
 rc_data2 = dcast(rc_data, ID + Group + Box ~ Component.Name, value.var = "Pct.Component.Time.Freezing")
@@ -214,7 +219,8 @@ for (ctx in levels(unique(rc_shock$CONTEXT))) {
   )
 }
 
-
+rc_shock %>%
+  ggplot() + aes(Pct.Component.Time.Freezing) + geom_histogram(binwidth = 10)
 
 ```
 
@@ -256,6 +262,8 @@ rc_avg %>%
   group_by(CONTEXT) %>%
   do(tidy(wilcox.test(data = ., avg.rc ~ EXPT)))
 
+merge(rc_avg, animal_details, by="ID") %>% mutate(diff = FREEZE - avg.rc) %>% 
+  ggplot() + aes(as.factor(ID), diff) + geom_point() +rx
 
 ```
 

@@ -14,12 +14,10 @@ Conditions in this set of graphs:
 ```{r}
 source("LoadLibs.R")
 library(corrplot)
-library(ade4) # for mantel test! cor. mat dissimilarity
 knew.molten3 = knew.molten2 %>%
   filter(UNITS == "density") %>%
   filter(BRIGHTNESS == 'total') 
 
-library(corrplot)
 library(Hmisc)
 library(psych)
 cluster.method = "hclust"
