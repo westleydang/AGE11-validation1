@@ -11,17 +11,10 @@ Conditions in this set of graphs:
 - 4. Ordering by "hclust"
 - 5. Removed bad freezers from young group
 
-```{r}
-source("LoadLibs.R")
-library(corrplot)
-knew.molten3 = knew.molten2 %>%
-  filter(UNITS == "density") %>%
-  filter(BRIGHTNESS == 'total') 
+```{r, message=F}
+# source("LoadLibs.R")
 
-library(Hmisc)
-library(psych)
-library(mice)
-cluster.method = "hclust"
+cluster.method = "alphabet"
 use.method = "complete.obs"
 corr.type="pearson"
 
@@ -33,13 +26,13 @@ corr.type="pearson"
 get_corrtest_sys = function(df) {
   data = df %>%
     # mutate(grain2 = paste(CHANNEL, System)) %>%
-    ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
+    ddply(.(CHANNEL, ID), transform, z = scale(weighted)) %>%
     dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
   
   # IMPUTE MISSING VALUES 
   data = complete(mice(data, m=5, seed=500))
   
-  # cor(data[,2:length(data)], data[,2:length(data)], use=use.method, method=corr.type)
+  # rcorr = cor(data[,2:length(data)], data[,2:length(data)], use=use.method, method=corr.type)
     rcorr = rcorr(as.matrix(data[,2:length(data)]), type=corr.type)
     # return(list(data=data, rcorr=rcorr))
     return(rcorr)
@@ -70,59 +63,54 @@ make_heatmap2 = function(test.results, title) {
            order=cluster.method, method="color", mar=c(0,0,1,0),
            diag=T, tl.pos = "l")
 }
+```
 
 
+# Define Corr. Comparisons
+```{r}
 # DEFINE MATRIX FOR MAKING GENERAL COMPARISONS
 compare_matrix_r = function(x,y, namex, namey) {
   
   # MAKE COR MATS
   make_heatmap2(x, namex)
   make_heatmap2(y, namey)
+
+  # print n
+  print(paste(c("n1=", min(x$n))))
   
-  # PRINT T-TEST PAIRED
-  x.vector = as.vector(x$r[lower.tri(x$r, diag=F)])
-  y.vector = as.vector(y$r[lower.tri(y$r, diag=F)])
-  print(t.test(fisherz(x.vector), 
-               fisherz(y.vector), 
-               paired=T))
+  print(paste(c("n2=", min(y$n))))
   
-  # PLOT DISTRIBUTION OF R VALUES
-  df = data.frame(var = c(rep(namex, length(x.vector)), rep(namey, length(y.vector))), 
-               values = c(x.vector, y.vector)) 
+  # STEIGER TEST STATS
   print(
-    df %>%
-      ggplot() + aes(values, group=var, color=var) + geom_density() + 
-      theme_minimal() + xlim(-1,1) + xlab("Pearson's R") +
-      ylab("Frequency") + ggtitle("Distribution of R values")
+    cortest.normal(R1 = x$r,
+                 R2 = y$r,
+                 n1 = min(x$n),
+                 n2 = min(y$n))
   )
   
+  print(
+    cortest.mat(R1 = x$r,
+                 R2 = y$r,
+                 n1 = min(x$n),
+                 n2 = min(y$n))
+  )
+    
   # PRINT DIFFERENCE MATRIX
   yx = y$r - x$r
   title = paste("Difference (", namey, " - ", namex, ")")
   corrplot(yx, title=title, order=cluster.method, method="color", 
            mar=c(0,0,1,0), diag=T, tl.pos = "l") 
-
-
-  # print(cor.test(x,y))
-  
-  print(
-    df %>%
-      ggplot() + aes(var, values) +
-      stat_summary(fun.y = "mean", geom="bar") +
-      stat_summary(fun.data = "mean_se", geom="errorbar") +
-      theme_minimal())
 }
 
 
 ```
 
-# PCA for ArcIHC
-
+# Define PCA function
 ```{r}
 get_data_matrix = function(df) {
   data = df %>%
     # mutate(grain2 = paste(CHANNEL, System)) %>%
-    ddply(.(System), transform, z = scale(value, center=T)) %>%
+    ddply(.(System), transform, z = scale(wm)) %>%
     dcast(ID ~ System, value.var="z", fun.aggregate = mean, .drop=T) 
   data
 }
@@ -183,40 +171,40 @@ get_pca = function(df, dfname) {
 }
 
 
-get_pca(arc, "ArcIHC")
-
 ```
 
 
 # ARCIHC
 ```{r}
 # SUBSET FOR ARC ONLY
-arc = knew.molten3 %>% filter(CHANNEL=='ArcIHC') %>%
-  mutate(perf = ifelse(FREEZE>25, 'hi', 'low'))
+arc = sys.weighted %>% filter(CHANNEL=='ArcIHC') 
 
 
+get_pca(arc, "ArcIHC")
 ```
 
 ### Arc::VALENCE stats = ns
 
-Is there a difference between context AA and context AB? That should be a control. 
+Is there a difference between odd/even animals? That should be a control.
+
+Fuck my life. 
+
 ```{r}
-arccaa = arc %>%
-  filter(GROUP=='CAA') %>%
+arcodd = arc %>%
+  filter((ID %%2) == T) %>%
   get_corrtest_sys()
 
-arccab = arc %>%
-  filter(GROUP=='CAB') %>%
+arceven = arc %>%
+  filter((ID%%2) ==F) %>%
   get_corrtest_sys()
 
-compare_matrix_r(arccaa, arccab, "caa", "cab")
-  
+compare_matrix_r(arcodd, arceven, "odd", "even")
+
 
 ```
 
 ```{r}
 
-# Get Z dist of CONTEXT
 av1 = arc %>%
   filter(VALENCE == 'CONTEXT') %>%
   get_corrtest_sys()
@@ -225,18 +213,10 @@ av2 = arc %>%
   filter(VALENCE == 'SHOCK') %>%
   get_corrtest_sys()
 
-# WHAT IF I DID HI VS LO SHOCKERS
-av1 = arc %>%
-  filter(perf == 'low') %>%
-  get_corrtest_sys()
-
-av2 = arc %>%
-  filter(perf == 'hi') %>%
-  get_corrtest_sys()
-
 compare_matrix_r(av1, av2, "context", "shock")
 
-cortest.normal(R1 = av1$r, R2 = av2$r, n1=max(av1$n), n2=max(av2$n))
+
+
 
 ```
 
@@ -252,10 +232,9 @@ arc.age2 = arc %>%
   filter(EXPT == 'OLD') %>%
   get_corrtest_sys() 
 
-
 compare_matrix_r(arc.age1, arc.age2, "young", "old")
 
-cortest.normal(R1 = arc.age1$r, R2 = arc.age2$r, n1=max(av1$n), n2=max(av2$n))
+
 
 
 ```
@@ -308,8 +287,7 @@ compare_matrix_r(arc.oc, arc.os, "oldCTX", "oldSHK")
 # H2BGFP
 ```{r}
 # SUBSET FOR ARC ONLY
-gfp = knew.molten3 %>% filter(CHANNEL=='H2BGFP') %>%
-  mutate(perf = ifelse(FREEZE>25, 'hi', 'low'))
+gfp = sys.weighted %>% filter(CHANNEL=='H2BGFP') 
 
 get_pca(gfp, "H2BGFP")
 ```
@@ -396,7 +374,7 @@ mantel.rtest(gfp.os, gfp.oc)
 # NormOL
 ```{r}
 # SUBSET FOR ARC ONLY
-nol = knew.molten3 %>% filter(CHANNEL=='NormOL')
+nol = sys.weighted %>% filter(CHANNEL=='NormOL')
 get_pca(nol, "NormOL")
 ```
 
@@ -440,26 +418,22 @@ compare_matrix_r(nol.age1, nol.age2, "young", "old")
 nol.ys = nol %>%
   filter(EXPT=='YOUNG') %>%
   filter(VALENCE=='SHOCK') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys() 
 
 nol.yc = nol %>%
   filter(EXPT=='YOUNG') %>%
   filter(VALENCE=='CONTEXT') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
 nol.os = nol %>%
   filter(EXPT=='OLD') %>%
   filter(VALENCE=='SHOCK') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
 nol.oc = nol %>%
   filter(EXPT=='OLD') %>%
   filter(VALENCE=='CONTEXT') %>%
-  get_corrtest_sys() %>%
-  as.dist()
+  get_corrtest_sys()
 
 ```
 
@@ -467,13 +441,13 @@ nol.oc = nol %>%
 ### NormOL Young CTX vs SHK = **
 ```{r}
 
-mantel.rtest(nol.ys, nol.yc)
+compare_matrix_r(nol.ys, nol.yc, "shock", "context")
 ```
 
 ### NormOL Old CTX vs SHK = **
 ```{r}
 
-mantel.rtest(nol.os, nol.oc)
+compare_matrix_r(nol.os, nol.oc, "shock", "context")
 ```
 
 
