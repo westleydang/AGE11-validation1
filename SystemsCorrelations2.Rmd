@@ -20,6 +20,7 @@ knew.molten3 = knew.molten2 %>%
 
 library(Hmisc)
 library(psych)
+library(mice)
 cluster.method = "hclust"
 use.method = "complete.obs"
 corr.type="pearson"
@@ -35,8 +36,13 @@ get_corrtest_sys = function(df) {
     ddply(.(CHANNEL, System), transform, z = scale(value)) %>%
     dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
   
+  # IMPUTE MISSING VALUES 
+  data = complete(mice(data, m=5, seed=500))
+  
   # cor(data[,2:length(data)], data[,2:length(data)], use=use.method, method=corr.type)
-    rcorr(as.matrix(data[,2:length(data)]), type=corr.type)
+    rcorr = rcorr(as.matrix(data[,2:length(data)]), type=corr.type)
+    # return(list(data=data, rcorr=rcorr))
+    return(rcorr)
 }
 
 
@@ -60,11 +66,13 @@ make_heatmap2 = function(test.results, title) {
   
   p = p.adjust(test.results$P, "fdr")
   
-  corrplot(test.results$r, title=title, insig="pch", pch="x", p.mat=test.results$P, sig.level=0.05,
+  corrplot(test.results$r, title=title, insig="blank", p.mat=test.results$P, sig.level=0.05,
            order=cluster.method, method="color", mar=c(0,0,1,0),
            diag=T, tl.pos = "l")
 }
 
+
+# DEFINE MATRIX FOR MAKING GENERAL COMPARISONS
 compare_matrix_r = function(x,y, namex, namey) {
   
   # MAKE COR MATS
@@ -103,7 +111,6 @@ compare_matrix_r = function(x,y, namex, namey) {
       stat_summary(fun.y = "mean", geom="bar") +
       stat_summary(fun.data = "mean_se", geom="errorbar") +
       theme_minimal())
-
 }
 
 
@@ -184,10 +191,29 @@ get_pca(arc, "ArcIHC")
 # ARCIHC
 ```{r}
 # SUBSET FOR ARC ONLY
-arc = knew.molten3 %>% filter(CHANNEL=='ArcIHC')
+arc = knew.molten3 %>% filter(CHANNEL=='ArcIHC') %>%
+  mutate(perf = ifelse(FREEZE>25, 'hi', 'low'))
+
+
 ```
 
 ### Arc::VALENCE stats = ns
+
+Is there a difference between context AA and context AB? That should be a control. 
+```{r}
+arccaa = arc %>%
+  filter(GROUP=='CAA') %>%
+  get_corrtest_sys()
+
+arccab = arc %>%
+  filter(GROUP=='CAB') %>%
+  get_corrtest_sys()
+
+compare_matrix_r(arccaa, arccab, "caa", "cab")
+  
+
+```
+
 ```{r}
 
 # Get Z dist of CONTEXT
@@ -199,8 +225,18 @@ av2 = arc %>%
   filter(VALENCE == 'SHOCK') %>%
   get_corrtest_sys()
 
+# WHAT IF I DID HI VS LO SHOCKERS
+av1 = arc %>%
+  filter(perf == 'low') %>%
+  get_corrtest_sys()
+
+av2 = arc %>%
+  filter(perf == 'hi') %>%
+  get_corrtest_sys()
+
 compare_matrix_r(av1, av2, "context", "shock")
 
+cortest.normal(R1 = av1$r, R2 = av2$r, n1=max(av1$n), n2=max(av2$n))
 
 ```
 
@@ -219,6 +255,7 @@ arc.age2 = arc %>%
 
 compare_matrix_r(arc.age1, arc.age2, "young", "old")
 
+cortest.normal(R1 = arc.age1$r, R2 = arc.age2$r, n1=max(av1$n), n2=max(av2$n))
 
 
 ```
@@ -255,6 +292,8 @@ arc.oc = arc %>%
 ```{r, fig.height=1, fig.width=2}
 
 compare_matrix_r(arc.yc, arc.ys, "youngCTX", "youngSHK")
+
+
 ```
 
 ### Arc Old CTX vs SHK = ns
@@ -269,7 +308,9 @@ compare_matrix_r(arc.oc, arc.os, "oldCTX", "oldSHK")
 # H2BGFP
 ```{r}
 # SUBSET FOR ARC ONLY
-gfp = knew.molten3 %>% filter(CHANNEL=='H2BGFP')
+gfp = knew.molten3 %>% filter(CHANNEL=='H2BGFP') %>%
+  mutate(perf = ifelse(FREEZE>25, 'hi', 'low'))
+
 get_pca(gfp, "H2BGFP")
 ```
 
