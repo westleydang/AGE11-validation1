@@ -89,7 +89,11 @@ channel.list = c("DAPI", "H2BGFP", "ArcIHC", "GFAP", "OL", "NormOL")
 # --- EXCLUDE SubROI with low representation across all mice
 
 pop.means = read.csv("SubroiPopMEANS - dec18.csv")
-exclude.low.pop.means = pop.means$SubROI[pop.means$CountPerROI<0.8*max(pop.means$CountPerROI)]
+exclude.low.pop.means = pop.means$MajorROI[pop.means$CountPerROI<0.8*max(pop.means$CountPerROI)]
 
 knew = knew[!(knew$SubROI_SubroiAGGR %in% exclude.low.pop.means),]
-knew.molten= knew.molten[!(knew.molten$SubROI_SubroiAGGR %in% exclude.low.pop.means),]
+knew.molten = knew.molten[!(knew.molten$MajorROI %in% exclude.low.pop.means),]
+
+
+
+

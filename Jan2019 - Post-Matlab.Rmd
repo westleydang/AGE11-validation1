@@ -9,12 +9,15 @@ output:
 ---
 
 # Post matlab stuff (MUST RUN FIRST)
-## Here are all the brain regions and their systems
+<!-- ## Here are all the brain regions and their systems -->
 ```{r, echo=F, message=F}
 source("LoadLibs.R")
-library("caret")
-source("LoadProcessZ1New-dec18.R") #outputs knew.molten (df)
+source("LoadProcessZ1New-dec18.R") #outputs knew.molten
+source("ImageCounts.R")
 attach(knew.molten)
+library(grid)
+library(gridExtra)
+library(ggpubr)
 
 # Merge more details
 freeze_details = read.csv("freeze_details.csv")
@@ -32,26 +35,54 @@ knew.molten2 = knew.molten2 %>% mutate(value = ifelse(value=='NaN', 0, value))
 knew.molten3 = knew.molten2 %>%
   filter(UNITS == "density") %>%
   filter(BRIGHTNESS == 'total') %>%
-  filter(!CHANNEL=='OL')
+  filter(!CHANNEL=='OL') %>% # don't need this because we have NormOL
+  mutate(EXPT = as.factor(EXPT))
+
+knew.molten3 = knew.molten3 %>% filter(!ID %in% qc.roi)
+
 
 # list the systems and their regions
-list.brain.regions =  knew.molten3 %>% group_by(System) %>% select(System, SubROI_SubroiAGGR) %>% unique()
+list.brain.regions =  knew.molten3 %>% group_by(System) %>% dplyr::select(System, SubROI_SubroiAGGR) %>% unique()
 arrange(list.brain.regions, System)
+```
 
+## Shortcuts
+```{r}
+put_sig_scores = function(x) {
+  x %>%
+  mutate(sig = 
+           case_when(
+             p.value < 0.001 ~ "***",
+             p.value < 0.01 ~ "**", 
+             p.value < 0.05 ~ "*"
+           )) 
+}
 
 ```
 
+
 # TOTAL brain, weighted average by ROI
-
-## Tests for parametric assumptions
-We used Bartlett's test to test the homoscedacity and Shapiro-Wilk test of normality. We did each test for each channel. Our total brain weighted means failed the normality test in all channels, so we did a box-cox transformation to make it more normal. Post-transformation, Arc, DAPI, and GFAP still failed normality at 95% confidence interval. 
-```{r, eval=F}
-
+## Set up weighted mean
+```{r}
 # total brain weighted means
 total.weighted = knew.molten3 %>%
-  group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
+  group_by(ID, GROUP, EXPT, VALENCE, CONTEXT, CHANNEL, variable) %>%
   summarize(weighted = weighted.mean(value, Pop_roiAreaMM2))
 
+# TRIED DOING BOX-COX TRANSFORMATION
+total.weighted = total.weighted %>% 
+  group_by(CHANNEL, EXPT, VALENCE, CONTEXT) %>% 
+  mutate(boxed = BoxCoxTrans(weighted) %>% predict(weighted))
+
+
+total.weighted = total.weighted %>% 
+  mutate(GROUP.EV = paste(EXPT, VALENCE))
+
+```
+
+
+
+```{r, eval=F}
 # DESCRIPTIVES
 total.weighted %>% ggplot() + aes(as.factor(ID), weighted, color=EXPT) + 
   geom_point() + facet_wrap(~CHANNEL, scales="free") + rx
@@ -62,73 +93,50 @@ total.weighted %>% ggplot() + aes(weighted) +
   
 # PLOT Q-Q
 total.weighted %>%
-  ggplot() + stat_qq(aes(sample=weighted, color=CHANNEL)) + 
+  ggplot() + stat_qq(aes(sample=boxed, color=CHANNEL)) + 
   facet_wrap(~CHANNEL, scales="free") + theme_minimal()
+```
 
-# is my data skewed? check mean vs median
-# probs want to find a metric for kurtosis though
+## Tests for parametric assumptions
+We used Bartlett's test to test the homoscedacity and Shapiro-Wilk/Agostino tests of normality. We did each test for each channel. Our total brain weighted means failed the normality test in all channels, so we did a box-cox transformation to make it more normal. 
+```{r}
+# SHAPIRO-WILK for n=8 groups (2x2x2)
 total.weighted %>%
-  group_by(CHANNEL) %>%
-  summarize(mean = mean(weighted), median = median(weighted),
-            "Rel. Difference (%)" = 100*abs(mean-median)/(mean+median),
-            skewness = skewness(weighted))
+  group_by(CHANNEL, EXPT, GROUP) %>%
+  do(tidy(shapiro.test(.$weighted))) %>%
+  put_sig_scores()
 
-# SHAPIRO-WILK test says that the means aren't normal
+# SHAPIRO-WILK for n=4 groups (2x2)
 total.weighted %>%
-  group_by(CHANNEL) %>%
-  do(tidy(shapiro.test(.$weighted)))
+  group_by(CHANNEL, EXPT, VALENCE) %>%
+  do(tidy(agostino.test(.$weighted))) %>%
+  put_sig_scores()
 
-# BARTLETT test says that the variances are the same
+# SHAPIRO-WILK for n=2 groups
+total.weighted %>%
+  group_by(CHANNEL, EXPT) %>%
+  do(tidy(agostino.test(.$weighted))) %>%
+  put_sig_scores()
+
+# BARTLETT test 
 total.weighted %>%
   group_by(CHANNEL) %>%
   do(tidy(bartlett.test(.$weighted, .$GROUP)))
 
-# TRIED DOING BOX-COX TRANSFORMATION
-total.weighted.box = total.weighted %>% 
-  group_by(CHANNEL) %>% 
-  mutate(boxed = BoxCoxTrans(weighted) %>% predict(weighted))
 
-# THEN TESTED SHAPIRO-WILK AGAIN
-total.weighted.box %>%
-  group_by(CHANNEL) %>%
-  do(tidy(shapiro.test(.$boxed)))
+# THEN TESTED SHAPIRO-WILK AGAIN WITH BOXED DATA for n=8
+total.weighted %>%
+  group_by(CHANNEL, EXPT) %>%
+  do(tidy(agostino.test(.$boxed))) %>%
+  put_sig_scores()
 
 # PLOT Q-Q AFTER BOX 
 # PLOT Q-Q
 total.weighted.box %>%
-  ggplot() + stat_qq(aes(sample=box, color=CHANNEL)) + 
+  ggplot() + stat_qq(aes(sample=boxed, color=GROUP)) + 
   facet_wrap(~CHANNEL, scales="free") + theme_minimal() +
   ggtitle("Box-Cox transformed Q-Q plots")
 
-
-```
-
-## Total cell density counts per channel
-```{r}
-knew.molten3 %>%
-  filter(CHANNEL %in% c('ArcIHC', 'H2BGFP', 'NormOL', 'GFAP')) %>%
-  group_by(ID, GROUP, EXPT, VALENCE, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
-  ggplot() + aes(CHANNEL, weighted) + 
-  stat_summary(fun.y = "mean", geom="bar", position="dodge") + 
-  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3), position=position_dodge(1)) +
-  ggtitle(paste(c("Whole brain, weighted, density"),"total","cells")) +
-  theme_minimal() + rx +
-  expand_limits(y=0)
-
-knew.molten3 %>%
-  filter(VALENCE == 'CONTEXT') %>%
-  filter(System == 'SUBIC-HPC') %>%
-  filter(CHANNEL %in% c('ArcIHC', 'H2BGFP')) %>%
-  group_by(ID, GROUP, EXPT, VALENCE, CHANNEL, SubROI_SubroiAGGR, variable) %>%
-  dplyr::summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
-  ggplot() + aes(CHANNEL, weighted) + 
-  stat_summary(fun.y = "mean", geom="bar", position="dodge") + 
-  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3), position=position_dodge(1)) +
-  facet_wrap(~SubROI_SubroiAGGR, ncol=12) +
-  ggtitle(paste(c("Whole brain, weighted, density"),"total","cells, in hippocampus")) +
-  theme_minimal() + rx +
-  expand_limits(y=0)
 
 ```
 
@@ -137,66 +145,56 @@ knew.molten3 %>%
 From the rest of the graphs, we ended up choosing the total cells. 
 ```{r}
 
-knew.molten3 %>%
-  filter(!(System==c('THALAMIC','MIDBRAIN','STRIATUM'))) %>%
+# POINT RANGE GRAPHS
+total.weighted %>% 
   filter(CHANNEL %in% c('ArcIHC', 'H2BGFP', 'NormOL')) %>%
-  group_by(ID, GROUP, EXPT, VALENCE, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
-  ggplot() + aes(VALENCE, weighted, fill=EXPT) + 
-  stat_summary(fun.y = "mean", geom="bar", position="dodge") + 
-  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3), position=position_dodge(1)) + 
+  ggplot() + aes(GROUP, weighted, color=EXPT) + 
+  stat_summary(fun.y = "mean", geom="point") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
   facet_wrap(~CHANNEL, scales="free") +
   ggtitle(paste(c("Whole brain, weighted, density"),"total","cells")) +
   theme_minimal() + rx +
   expand_limits(y=0)
 
-knew.molten3 %>%
-  # filter((System!=c('THALAMIC','MIDBRAIN','STRIATUM'))) %>%
-  filter(CHANNEL %in% c('ArcIHC', 'H2BGFP', 'NormOL')) %>%
-  group_by(ID, GROUP, EXPT, VALENCE, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+# ACTIVITY-RELATED
+total.weighted %>% 
+  filter(CHANNEL %in% c('ArcIHC', 'H2BGFP', 'NormOL', 'GFAP')) %>%
   ggplot() + aes(EXPT, weighted, fill=VALENCE) + 
   stat_summary(fun.y = "mean", geom="bar", position="dodge") + 
   stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3), position=position_dodge(1)) + 
-  facet_wrap(~CHANNEL, scales="free") +
+  facet_wrap(~CHANNEL, scales="free", nrow=1) +
   ggtitle(paste(c("Whole brain, weighted, density"),"total","cells")) +
   theme_minimal() + rx +
-  expand_limits(y=0)
+  expand_limits(y=0) + scale_fill_brewer()
 
-
-knew.molten3 %>%
-  # filter((System!=c('THALAMIC','MIDBRAIN','STRIATUM'))) %>%
+# GFAP
+total.weighted %>% 
   filter(CHANNEL %in% c('GFAP')) %>%
-  group_by(ID, GROUP, EXPT, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
   ggplot() + aes(GROUP, weighted, fill=EXPT) + 
   stat_summary(fun.y = "mean", geom="bar", position="dodge") + 
   stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3), position=position_dodge(1)) + 
   facet_wrap(~CHANNEL, scales="free") +
-  ggtitle(paste(c("Whole brain, weighted, density"),"total","cells")) +
+  ggtitle(paste(c("Whole brain, weighted, density, GFAP"),"total","cells")) +
   theme_minimal() + rx +
   expand_limits(y=0)
 
 ```
 
 
-## ANOVA on the Box-Cox transformed
+## ANOVA
 
 ```{r}
-# aggregate into whole brains, then box cox transform
-ts1 = knew.molten3 %>%
-  ddply(., .(CHANNEL, GROUP, EXPT, VALENCE, CONTEXT, ID), summarize, wm = weighted.mean(value, Pop_roiAreaMM2)) %>%
-  group_by(CHANNEL) %>%
-  mutate(boxed = BoxCoxTrans(wm) %>% predict(wm))
-
 # run the ANOVA on boxed data
-ts2 = ts1 %>%
+ts2 = total.weighted %>%
   group_by(CHANNEL) %>%
-  do(tidy(aov(data=., boxed ~ EXPT * VALENCE * CONTEXT)))
+  do(tidy(aov(data=., weighted ~ EXPT * VALENCE * CONTEXT))) %>%
+  put_sig_scores()
+ts2
 
 # spit out significant values
 ts2.sig = ts2 %>%
-  filter(p.value < 0.05)
+  filter(p.value < 0.05) %>%
+  put_sig_scores()
 ts2.sig
 
 # graph it
@@ -206,7 +204,7 @@ ts2 %>%
   aes(reorder(term, p.value), -log10(p.value), label=p.value, fill=CHANNEL) +
   geom_bar(stat="identity") +
   coord_flip() + theme_minimal() + rx +
-  ggtitle(paste("Results, 3-way ANOVA (Box-Cox transform), line at p=0.05")) +
+  ggtitle(paste("Results, 3-way ANOVA, line at p=0.05")) +
   ylab("p-value 10^-x") +
   xlab("System") +
   facet_wrap(~CHANNEL) +
@@ -214,12 +212,28 @@ ts2 %>%
 
 ```
 
+## Robust ANOVA
+```{r}
+# testing robust anova with WRS2 package
+library(WRS2)
+arc.tw = total.weighted %>% filter(CHANNEL=='ArcIHC')
+t3way(formula = weighted ~ EXPT * VALENCE * CONTEXT, data = arc.tw)
+
+gfp.tw = total.weighted %>% filter(CHANNEL=='H2BGFP')
+t3way(formula = weighted ~ EXPT * VALENCE * CONTEXT, data = gfp.tw)
+
+fap.tw = total.weighted %>% filter(CHANNEL=='GFAP')
+t3way(formula = weighted ~ EXPT * VALENCE * CONTEXT, data = fap.tw)
+
+```
+
+
 ## ANOVA - post-hoc TukeyHSD
 Oops this should probably be Dunn test if I do a KW test instead of ANOVA, bu I can't do a KW for 3-way
 ```{r}
-hsd.ts1 = ts1 %>% 
+hsd.ts1 = total.weighted %>% 
   group_by(CHANNEL) %>%
-  do(tidy(TukeyHSD(aov(data=., wm ~ EXPT * VALENCE * CONTEXT)))) %>%
+  do(tidy(TukeyHSD(aov(data=., boxed ~ EXPT * VALENCE * CONTEXT)))) %>%
   # select(term, comparison, adj.p.value) %>%
   filter(adj.p.value < 0.05) 
 
@@ -245,6 +259,7 @@ compare.relevant = function(df) { #inputs hsd
   df.kept = df[keeps,]
   df.kept
 }
+
 # accept only relevant comparisons
 hsd.ts1.relevant = compare.relevant(hsd.ts1)
 
@@ -265,77 +280,90 @@ show.sig.from.anova(ts2.sig, hsd.ts1.relevant)
 Because K-W tests can't do factorial designs you're probably going ot have to do the separate 1-way tests and then correct for n=14 multiple comparisons with Bonferroni (2^3 + 2^2 + 2^1)... Luckily the ANOVAs filter out which ones are most likely be important. There are no 3-ways. Let's just focus on the 2-ways and 1-ways.
 
 ```{r}
+library(dunn.test)
 
 ## ARCIHC EXPT:VALENCE
-ts1 %>%
+total.weighted %>%
   filter(CHANNEL=='ArcIHC') %>%
   filter(EXPT=='OLD') %>%
-  summarize(14*dunn.test(wm, VALENCE)$P)
+  summarize(dunn.test(.$weighted, .$VALENCE)$P)
 
-
-ts1 %>%
+total.weighted %>%
   filter(CHANNEL=='ArcIHC') %>%
   filter(VALENCE == 'SHOCK') %>%
-  summarize(14*dunn.test(wm, EXPT)$P)
-
-
-## DAPI EXPT
-ts1 %>%
-  filter(CHANNEL=='DAPI') %>%
-  # filter(EXPT=='OLD') %>%
-  summarize(14*dunn.test(wm, EXPT)$P)
+  summarize(14*dunn.test(.$weighted, .$EXPT)$P)
 
 ## GFAP EXPT, VALENCE
-ts1 %>%
+total.weighted %>%
   filter(CHANNEL=='GFAP') %>%
   # filter(EXPT=='OLD') %>%
-  summarize(14*dunn.test(wm, EXPT)$P)
+  summarize(14*dunn.test(.$weighted, .$EXPT)$P)
 
-ts1 %>%
+total.weighted %>%
+  filter(CHANNEL=='GFAP') %>%
+  filter(EXPT=='OLD') %>%
+  summarize(14*dunn.test(.$weighted, .$VALENCE)$P)
+
+total.weighted %>%
   filter(CHANNEL=='GFAP') %>%
   # filter(EXPT=='OLD') %>%
-  summarize(14*dunn.test(wm, VALENCE)$P)
+  summarize(14*dunn.test(weighted, VALENCE)$P)
+
+tw.arc = total.weighted %>% filter(CHANNEL=='ArcIHC')
+dunn.test(tw.arc$weighted, tw.arc$GROUP.EV)
 
 ## NORM OL EXPT:VALENCE
-ts1 %>%
+total.weighted %>%
   filter(CHANNEL=='NormOL') %>%
   filter(EXPT=='YOUNG') %>%
-  summarize(14*dunn.test(wm, VALENCE)$P)
+  summarize(14*dunn.test(weighted, VALENCE)$P)
+
+total.weighted %>%
+  filter(CHANNEL=='NormOL') %>%
+  filter(VALENCE=='SHOCK') %>%
+  summarize(14*dunn.test(weighted, EXPT)$P)
 
 ```
 
 
-## FREEZE Correlations (Shock ONLY)
+## FREEZE Correlations
 We hypothesized that the shock animals might have a correlation between brain activity and freezing. We found that only in old animals did the recall activity correlate with freezing scores. 
 ```{r}
 # GRAPH LIN REG ON DATA (UN-BOXED)
-knew.molten3 %>%
-  filter(VALENCE == 'SHOCK') %>%
-  filter(!CHANNEL=='DAPI') %>%
-  group_by(ID, FREEZE,GROUP, EXPT, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+total.weighted %>%
+  merge(., animal_details %>% select(FREEZE, ID), by='ID') %>%
+  # merge(., fc_data2 %>% select(ID, PRE, POST1, POST2, POST3, POST4), by='ID') %>%
+  filter(!CHANNEL %in% c('DAPI', 'GFAP')) %>%
   ggplot() + aes(FREEZE, weighted) + 
   stat_summary(fun.y="mean", geom="point") +
-  facet_wrap(EXPT~CHANNEL, scales="free", ncol=4) + geom_smooth(method="lm") +
-  ggtitle("Total brain density vs freezing, total cells, shock animals only") +
+  facet_wrap(EXPT~CHANNEL, scales="free", ncol=3) + geom_smooth(method="lm") +
+  ggtitle("Total brain density vs freezing, total cells") +
   theme_minimal()
 
 # GET THE STATS (BOX-COX TRANSFORMATION)
-tot.lr = total.weighted.box %>%
-  merge(., animal_details %>% select(FREEZE, VALENCE, CONTEXT, ID), by='ID') %>%
-  filter(VALENCE == 'SHOCK') %>%
-  filter(!CHANNEL %in% c('DAPI','GFAP')) %>%
-  group_by(CHANNEL, EXPT) %>%
+tot.lr = total.weighted %>%
+  merge(., animal_details %>% dplyr::select(FREEZE, ID), by='ID') %>%
+  filter(VALENCE=='SHOCK') %>%
+  # filter(!CHANNEL %in% c('DAPI','GFAP')) %>%
+  group_by(CHANNEL, VALENCE, EXPT) %>%
   do(tidy(lm(data=., formula = boxed ~ FREEZE))) %>%
-  filter(!term=="(Intercept)") %>%
-  mutate(sig = 
-           case_when(
-             p.value < 0.001 ~ "***",
-             p.value < 0.01 ~ "**", 
-             p.value < 0.05 ~ "*"
-           ))
+  put_sig_scores()
+  # 
 # SPIT
 tot.lr
+
+# WHAT IF YOU COMPARED WITH POST4 DATA
+total.weighted %>%
+  merge(., animal_details %>% select(FREEZE, ID), by='ID') %>%
+  merge(., fc_data2 %>% select(ID, PRE, POST1, POST2, POST3, POST4), by='ID') %>%
+  group_by(CHANNEL, ID) %>%
+  mutate(POSTALL = mean(POST1, POST2, POST3, POST4)) %>%
+  # filter(VALENCE == 'SHOCK') %>%
+  filter(!CHANNEL %in% c('DAPI','GFAP')) %>%
+  group_by(CHANNEL, EXPT) %>%
+  do(tidy(lm(data=., formula = boxed ~ POST4))) %>%
+  filter(!term=="(Intercept)") %>%
+  put_sig_scores()
 
 ```
 
@@ -344,58 +372,46 @@ tot.lr
 # SYSTEMS analysis 
 
 ## Check normality
-Fuck they fail normality again. 
 ```{r, eval=F}
 # system brain weighted means
 sys.weighted = knew.molten3 %>%
   group_by(ID, EXPT, GROUP, VALENCE, CONTEXT, CHANNEL, variable, System) %>%
-  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2))
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) 
 
-# SHAPIRO-WILK test says that the means aren't normal
-sys.weighted %>%
-  group_by(CHANNEL, System) %>%
-  do(tidy(shapiro.test(.$weighted)))
-
-# BARTLETT test says that the variances are the same
-sys.weighted %>%
-  group_by(CHANNEL, System) %>%
-  do(tidy(bartlett.test(.$weighted, .$GROUP)))
-
-
-sys.weighted.box = sys.weighted %>% 
+# get box-cox transform
+sys.weighted = sys.weighted %>% 
   group_by(CHANNEL,System) %>% 
   mutate(boxed = BoxCoxTrans(weighted) %>% predict(weighted))
 
-sys.weighted.box %>%
-  group_by(CHANNEL, System) %>%
-  do(tidy(shapiro.test(.$boxed)))
+# SHAPIRO-WILK test says that the means aren't normal
+sys.weighted %>%
+  group_by(CHANNEL, System, EXPT, VALENCE) %>%
+  do(tidy(shapiro.test(.$weighted))) %>%
+  filter(p.value < 0.05)
+
+# BARTLETT test says that the variances are the same
+sys.weighted %>%
+  group_by(CHANNEL, System, EXPT, VALENCE) %>%
+  do(tidy(bartlett.test(.$weighted, .$GROUP))) %>%
+  filter(p.value < 0.05)
 
 ```
 
 
 ## ANOVA - Systems on Box-Cox
+- Should I try to do it with robust methods?
 ```{r}
-# create weighted means for the system
-ss1 = knew.molten3 %>%
-  ddply(., .(CHANNEL, GROUP, EXPT, VALENCE, CONTEXT, ID, System), summarize,
-        wm = weighted.mean(value, Pop_roiAreaMM2)) %>%
-  mutate(boxed = BoxCoxTrans(wm) %>% predict(wm))
 
 # do the ANOVA
-ss2 = ss1 %>%
+ss2 = sys.weighted %>%
   group_by(CHANNEL, System) %>%
-  do(tidy(aov(data=., boxed ~ EXPT * VALENCE * CONTEXT))) %>%
+  do(tidy(aov(data=., weighted ~ EXPT * VALENCE * CONTEXT))) %>%
   mutate(p.value = p.adjust(p.value, method="BH", n=15))
 summary(ss2$p.value)
-## fdr, mean p is 0.48
-## fdr n=16, mean p is 0.72
-## BH n=16, p = 0.72
-## none, p = 0.36
-## bonferroni, p = 0.75
-## hommel, p=0.58
 
 # how many significant systems?
 ss2.sig = ss2 %>% filter(p.value < 0.05) 
+ss2.sig
 summary(ss2.sig)
 
 # make graphs
@@ -408,24 +424,23 @@ for (tm in unique(ss2$term)) {
         ggplot() + aes(reorder(System, p.value), -log10(p.value), label=p.value, fill=System) + 
         geom_bar(stat="identity") +
         coord_flip() + theme_light() + rx +
-        ggtitle(paste(tm, "3-way ANOVA on Box-Cox transformed")) +
+        ggtitle(paste(tm, "3-way ANOVA")) +
         ylab("p-value 10^-x, Benjamini-Hochberg post-hoc") +
         xlab("System") +
         facet_wrap(~CHANNEL, ncol=2, scales="free") +
-        geom_hline(yintercept = 1.30103)
+        geom_hline(yintercept = 10^-0.05)
     )
 }
 
 ```
 
 ## ANOVA - Post-hoc TukeyHSD
+Too many systems have skews and can't get rid of them with Box-Cox transforms. Should probably use NP tests. 
 ```{r}
 
-hsd.ss1 = ss1 %>% 
+hsd.ss1 = sys.weighted %>% 
   group_by(CHANNEL, System) %>%
-  do(tidy(TukeyHSD(aov(data=., wm ~ EXPT * VALENCE * CONTEXT))))
-
-dim(hsd.ss1)
+  do(tidy(TukeyHSD(aov(data=., boxed ~ EXPT * VALENCE * CONTEXT))))
 
 # adjust p.value and filter for significant values
 hsd.ss1.sig = hsd.ss1 %>% 
@@ -438,12 +453,12 @@ hsd.ss1.relevant = compare.relevant(hsd.ss1.sig)
 show.sig.from.anova.systems = function(x,y) {
   sig.terms = paste(x$CHANNEL, x$System, x$term)
   rel.terms = paste(y$CHANNEL, y$System, y$term)
-  
   y[rel.terms %in% sig.terms,]
 }
 
 # show only relevant AND significant ANOVA
-show.sig.from.anova.systems(ss2.sig, hsd.ss1.relevant)
+sig.systems = show.sig.from.anova.systems(ss2.sig, hsd.ss1.relevant)
+sig.systems
 
 remove_sme = function(df) { 
   # input tibble
@@ -457,29 +472,25 @@ remove_sme = function(df) {
   df %>% filter(!(term %in% to.remove))
 }
 
-a %>% filter(CHANNEL=='ArcIHC') %>%
-  filter(System =='HYPOTHAL') %>%
-  filter(str_detect(term, ':')) %>%
-  pull(term) %>% unique() %>% as.vector() %>%
-  str_split(':') %>% unlist()
-a %>% filter(CHANNEL=='ArcIHC') %>%
-  filter(System =='HYPOTHAL') %>%
-  filter(!(term %in% NULL))
-
-a %>% group_by(CHANNEL, System) %>% remove_sme()
-# WHY ISNT' THIS WORKING, CORTICO SHOULD STILL BE THERE 
-a
 ```
 
 
 ## Calculate weighted means for each system
 ```{r, fig.width = 7.5, fig.height=4}
 
-# systems, weighted by ROI area
-knew.molten3 %>%
+# systems, weighted by ROI area GROUP
+sys.weighted %>%
   filter(CHANNEL %in% channel.list[c(2,3,4,6)]) %>%
-  group_by(ID, System, GROUP, EXPT, VALENCE, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+  ggplot() + aes(GROUP, weighted, color=EXPT) + 
+  stat_summary(fun.y = "mean", geom="point") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
+  facet_grid(CHANNEL~System, scales="free") +
+  ggtitle("systems, weighted, density total cells, bad freezers NOT removed") + 
+  theme_light() + rx
+
+# systems, weighted by ROI area VALENCE
+sys.weighted %>%
+  filter(CHANNEL %in% channel.list[c(2,3,4,6)]) %>%
   ggplot() + aes(VALENCE, weighted, color=EXPT) + 
   stat_summary(fun.y = "mean", geom="point") + 
   stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
@@ -502,141 +513,98 @@ knew.molten3 %>%
 #   ggtitle("systems, weighted, density total cells, bad freezers NOT removed") + 
 #   theme_light() + rx
 
-
-
 ```
 
 ## H2BGFP weighted means for each system
-```{r, fig.height=2, fig.width=6}
+```{r}
 
 # have to do GFP separately because AA/AB are the same...
-knew.molten3 %>%
+sys.weighted %>%
   filter(CHANNEL %in% channel.list[c(2)]) %>%
-  # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
-  group_by(ID, System, VALENCE, EXPT, CHANNEL, variable) %>%
-  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
   ggplot() + aes(VALENCE, weighted, color=EXPT, fill=EXPT) + 
   stat_summary(fun.y = "mean", geom="point") + 
   stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
-  facet_wrap(~System, scales="free", ncol=15) + 
-  ggtitle("systems, weighted, density total cells, bad freezers NOT removed") + 
-  theme_minimal() + rx + expand_limits(y=0) 
+  facet_wrap(~System, scales="free", ncol=5) +
+  ggtitle("H2BGFP per system") + 
+  theme_minimal()  + expand_limits(y=0)  +
+  theme(axis.text=element_text(size=6),
+        strip.text.x = element_text(size = 6)) +
+  ylab("Weighted cell counts") + xlab("")
 
 ```
 
-## Linear regressions 
-- Do they correlate with how much fear they express? 
-```{r, fig.width=8, fig.height=3}
+## GFAP ~ ArcIHC correlation is significant
+```{r}
+total.weighted %>%
+  group_by(CHANNEL) %>%
+  mutate(weighted.z = scale(weighted)) %>%
+  filter(EXPT=='OLD') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  dcast(ID + CONTEXT~ CHANNEL, value.var="weighted.z") %>%
+  # lm(., formula=ArcIHC~GFAP) %>% summary()
+  # do(tidy(lm(., formula = ArcIHC ~ GFAP)))
+  ggplot() + aes(GFAP, ArcIHC) + geom_point(aes(color=CONTEXT))
 
-# LINEAR REGRESSIONS SYSTEMS
-# for (ch in channel.list[c(2,3,5,6)]) {
-#   print(
-#     knew.molten3 %>%
-#       # filter(VALENCE == 'SHOCK') %>%
-#       filter(CHANNEL == ch) %>%
-#       group_by(ID, System, GROUP, EXPT, CHANNEL, FREEZE, variable) %>%
-#       summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
-#       ggplot() + aes(FREEZE, weighted) + 
-#       stat_summary(fun.y="mean", geom="point") + 
-#       facet_wrap(EXPT~System, scales="free", ncol=15) + geom_smooth(method="lm") +
-#       ggtitle(paste("Systems cell density vs freezing, shock only", ch)) +
-#       theme_minimal() 
-#   )
-# }
+# GRAPH
+sys.weighted %>%
+  group_by(CHANNEL, System) %>%
+  mutate(weighted.z = scale(weighted)) %>%
+  filter(EXPT=='OLD') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  dcast(ID + CONTEXT + System~ CHANNEL, value.var="weighted.z") %>%
+  group_by(System) %>%
+  # do(tidy(lm(., formula = ArcIHC ~ GFAP))) %>% put_sig_scores()
+  ggplot() + aes(GFAP, ArcIHC) + geom_point(aes(color=CONTEXT)) + facet_wrap(~System,ncol=5) + geom_smooth(method="lm") + 
+  theme_minimal()
+
+# STATS
+sys.weighted %>%
+  group_by(CHANNEL, System) %>%
+  mutate(weighted.z = scale(weighted)) %>%
+  filter(EXPT=='OLD') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  dcast(ID + System ~ CHANNEL, value.var="weighted.z") %>%
+  merge(., animal_details %>% select(FREEZE, ID), by="ID") %>%
+  group_by(System) %>%
+  do(tidy(lm(., formula = FREEZE ~ GFAP))) %>% put_sig_scores()
+
+```
+
+
+## FREEZE Correlations (All animals)
+- Do they correlate with how much fear they express? None are significant. 
+```{r, fig.width=6, fig.height=2}
 
 for(ch in channel.list[c(2,3,6)]) {
-  print(
-    sys.weighted %>%
-      filter(CHANNEL==ch) %>%
-      merge(., animal_details %>% select(FREEZE, ID), by='ID') %>%
-      ggplot() + aes(FREEZE, weighted) + stat_summary(fun.y="mean", geom="point") +
-      facet_wrap(EXPT~System, scales="free", ncol=15) + geom_smooth(method="lm") +
-      theme_minimal() + ggtitle(ch) + xlab("System")
-  )
+  for (age in unique(as.factor(sys.weighted$EXPT))) {
+      print(
+        sys.weighted %>%
+          filter(CHANNEL==ch) %>%
+          filter(EXPT==age) %>%
+          merge(., animal_details %>% select(FREEZE, ID), by='ID') %>%
+          ggplot() + aes(FREEZE, weighted) + stat_summary(fun.y="mean", geom="point") +
+          facet_wrap(~System, scales="free", ncol=8) + geom_smooth(method="lm") +
+          theme_minimal() +
+          ggtitle(paste("Systems cell density vs freezing", ch, age)) + 
+          xlab("System") + ylab("Weighted means")
+   )
+  }
 }
 
-
- # GET THE STATS ON BOXED
-sys.lr2 = sys.weighted.box %>%
-  merge(., animal_details %>% select(FREEZE, ID), by='ID') %>%
+# GET THE STATS ON BOXED DATA
+sys.lr = sys.weighted %>%
+  merge(., animal_details %>% dplyr::select(FREEZE, ID), by='ID') %>%
   filter(VALENCE == 'SHOCK') %>%
+  filter(!CHANNEL %in% c('DAPI')) %>%
   group_by(CHANNEL, EXPT, System) %>%
   do(tidy(lm(data=., boxed ~ FREEZE))) %>% 
   filter(!term=="(Intercept)") %>%
-  # summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
-  
-  # group_by(CHANNEL, EXPT, System) %>%
-  # do(tidy(lm(data=., formula = weighted ~ FREEZE))) %>%
-  # filter(!term=="(Intercept)") %>%
-  mutate(p.value = p.adjust(p.value, method="fdr", n=15)) %>%
-  mutate(sig = 
-           case_when(
-             p.value < 0.0005 ~ "***",
-             p.value < 0.005 ~ "**", 
-             p.value < 0.05 ~ "*"
-           ))
+  # mutate(p.value = p.adjust(p.value, method="fdr", n=16)) %>%
+  put_sig_scores()
+sys.lr
 
-# positive or negative
-# sys.lr %>%
-#   filter(CHANNEL %in% c("H2BGFP","NormOL", "ArcIHC")) %>% # omit DAPI/OL/GFAP channels for clarity
-#   # dcast(., CHANNEL+EXPT ~ System, value.var="sig") %>%
-#   ggplot() + aes(EXPT, System, fill=estimate/abs(estimate), label=round(estimate,0)) + geom_tile() + facet_wrap(~CHANNEL) + 
-#   scale_fill_continuous(limits=c(-1,1), low="red", high="green", na.value="white") + 
-#   ggtitle("Slopes from linear regression (red is negative)") +
-#   theme_light()
-
-# P VALUES
-sys.lr %>%
-  filter(CHANNEL %in% c("H2BGFP","NormOL", "ArcIHC")) %>% # omit DAPI/OL/GFAP channels for clarity
-  # dcast(., CHANNEL+EXPT ~ System, value.var="sig") %>%
-  ggplot() + aes(EXPT, System, fill=p.value, label=sig) + geom_tile() + facet_wrap(~CHANNEL) + 
-  scale_fill_continuous(limits=c(0,0.05), low="dark red", high="white", na.value="white") + 
-  ggtitle("Signifiance scores from linear regression (FDR corrected)") +
-  theme_light() + geom_label(label.size=0, color="white")
-```
-
-
-## Stats 2 (interactions)
-```{r, eval=F}
-sys.lr2 = knew.molten2 %>%
-  filter(UNITS == "density") %>%
-  filter(BRIGHTNESS == 'total') %>%
-  filter(VALENCE == 'SHOCK') %>%
-  # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
-  group_by(CHANNEL, EXPT, GROUP, ID, FREEZE, System) %>%
-  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
-  group_by(CHANNEL) %>%
-  do(tidy(lm(data=., weighted ~ FREEZE * EXPT))) %>%
-  filter(!term=="Residuals") %>%
-  # mutate(p.value = p.adjust(p.value, method="BH", n=16)) %>%
-  mutate(sig = 
-           case_when(
-             p.value < 0.0005 ~ "***",
-             p.value < 0.005 ~ "**", 
-             p.value < 0.05 ~ "*"
-           ))
-
-sys.lr2 %>%
-  filter(term=='FREEZE:EXPTYOUNG') %>%
-  ggplot() + aes(reorder(CHANNEL, p.value), -log10(p.value), fill=CHANNEL) + 
-  geom_bar(stat="identity") + coord_flip() + theme_minimal() +
-  geom_hline(yintercept=2) +
-  ggtitle("(Activity ~ Freeze):AGE") +
-  xlab('channels')
-
-knew.molten2 %>%
-  filter(UNITS == "density") %>%
-  filter(BRIGHTNESS == 'total') %>%
-  filter(VALENCE == 'SHOCK') %>%
-  filter(!CHANNEL=='DAPI') %>%
-  group_by(CHANNEL, EXPT, GROUP, ID, FREEZE, System) %>%
-  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
-  ggplot() + aes(FREEZE, weighted, color=EXPT) +
-  # geom_point() +
-  geom_smooth(method="lm", fullrange=T, aes(group=EXPT)) +
-  facet_wrap(~CHANNEL, scales="free") + theme_minimal() +
-  ggtitle("Regressions of cell density vs. freezing") +
-  ylab("Activated cell densities")
+# WHICH ARE SIG?
+sys.lr %>% filter(p.value < 0.05)
 
 ```
 
@@ -664,18 +632,17 @@ for (ch in channel.list[c(2,3,4,5,6)]) {
 ## Calculate the means for each ROI
 Find the code from the other scripts you wrote. 
 
-```{r, fig.width=12, fig.height=7}
+```{r, fig.width=7, fig.height=4}
 
-for (ch in channel.list[c(3,4,5,6)]) {
+for (ch in channel.list[c(2,3,6)]) {
   print(
     knew.molten3 %>%
       filter(CHANNEL == ch) %>%
-      filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE=='SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
       ggplot() + aes(GROUP, value, color=EXPT) + 
       stat_summary(fun.y = "mean", geom="point") + 
       stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3)) + 
       facet_wrap(~SubROI_SubroiAGGR, scales="free", ncol=12) + 
-      ggtitle(paste(c("Densities, shock animals only, removed poor performers, "),ch,", TOTAL cells")) +
+      ggtitle(paste(c("Densities, shock animals only"),ch,", TOTAL cells")) +
       theme_light() + rx
   )
 }
@@ -746,29 +713,6 @@ for (ch in channel.list) {
 
 ```
 
-## Heatmaps for ROI
-
-```{r, fig.width=9, fig.height=4}
-
-for (bright in c('low', 'mid', 'hi', 'total')[4]) {
-  for (ch in channel.list) {
-    print(
-    knew.molten2 %>%
-      filter(UNITS == "density") %>%
-      filter(BRIGHTNESS == bright) %>%
-      filter(CHANNEL == ch) %>%
-      ddply(.(EXPT, SubROI_SubroiAGGR, CHANNEL), transform, z = scale(value)) %>%
-      ggplot() + aes(GROUP, SubROI_SubroiAGGR, z=z, fill=z) +
-      geom_tile() + scale_fill_gradient2(low='dark blue', mid='white', high='red') +
-      facet_wrap(~EXPT, ncol=1) + rx + coord_flip() +
-      ggtitle(paste("Scaled density across animals in age group,",bright, ch)) +
-      theme_light() + rx
-  )
-  }
-}
-```
-
-
 
 ## Linear regressions for ROI
 ```{r, fig.width=12, fig.height=9, eval=F}
@@ -788,6 +732,24 @@ for (ch in channel.list[c(2,3,5,6)]) {
       theme_minimal() 
   )
 }
+
+
+for(ch in channel.list[c(2,3,6)]) {
+  for (age in unique(as.factor(sys.weighted$EXPT))) {
+      print(
+        sys.weighted %>%
+          filter(CHANNEL==ch) %>%
+          filter(EXPT==age) %>%
+          merge(., animal_details %>% select(FREEZE, ID), by='ID') %>%
+          ggplot() + aes(FREEZE, weighted) + stat_summary(fun.y="mean", geom="point") +
+          facet_wrap(~System, scales="free", ncol=8) + geom_smooth(method="lm") +
+          theme_minimal() +
+          ggtitle(paste("Systems cell density vs freezing", ch, age)) + 
+          xlab("System") + ylab("Weighted means")
+   )
+  }
+}
+
 
 ```
 
@@ -840,13 +802,15 @@ roi.lr %>%
 
 # MISC
 
+## which animals have least images, possibly means for removal
 ```{r}
+roi.by.id = knew.molten3 %>%
+  group_by(ID, EXPT, GROUP) %>%
+  summarize(sum = sum(ROIAreapx))
 
-knew.molten3 %>%
-  select(ID, EXPT, GROUP) %>%
-  unique() %>%
-  group_by(EXPT, GROUP) %>%
-  summarize(number_animals = n())
+hist(roi.by.id$sum)
+
+  ggplot() + aes(as.factor(ID), sum(ROIAreapx), fill=GROUP) + geom_bar(stat="identity") + rx 
 
 ```
 
@@ -863,12 +827,33 @@ ss1.pct = ss1 %>%
   summarize(rel.pct = mean(per)) 
 
 ss1.pct %>%
-  filter(CHANNEL %in% c('ArcIHC', 'H2BGFP', 'GFAP')) %>%
+  filter(CHANNEL %in% c('ArcIHC', 'H2BGFP')) %>%
   ggplot() + aes(System, rel.pct, fill=System) + geom_bar(stat="identity", show.legend = F) +
   facet_wrap(~CHANNEL) + theme_minimal() + 
   ylab("Relative labeling (%)") +
   ggtitle("Labeling across brain systems are different by modality") + coord_flip()
 
+ss1.pct %>%
+  filter(CHANNEL=='GFAP') %>%
+  ggplot() + aes(reorder(System, rel.pct), rel.pct, fill=System) + geom_bar(stat="identity", show.legend = F) +
+  facet_wrap(~CHANNEL) + theme_minimal() + 
+  ylab("Relative labeling (%)") +
+  ggtitle("Relative GFAP densities") + coord_flip() + 
+  xlab("Systems")
+
+
+
+```
+
+## Total cell density counts per channel 
+```{r}
+total.weighted %>%
+  ggplot() + aes(CHANNEL, weighted) + 
+  stat_summary(fun.y = "mean", geom="bar", position="dodge") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3), position=position_dodge(1)) +
+  ggtitle(paste(c("Whole brain, weighted, density"),"total","cells")) +
+  theme_minimal() + rx +
+  expand_limits(y=0)
 
 ```
 
@@ -884,3 +869,306 @@ knew.molten3 %>%
   coord_flip() + theme_minimal() +
   ggtitle("Relative size of each system, based on imaged samples")
 ```
+
+
+
+## Quality Control - Regions
+```{r}
+pop.means %>%
+  group_by(SubROI) %>%
+  mutate(pct.rep = 100*CountPerROI/51) %>% # 51 animals
+  ggplot() + aes(reorder(SubROI, pct.rep), pct.rep, fill=pct.rep) +
+  geom_bar(stat="identity") + rx +
+  geom_hline(yintercept = 70) + 
+  ggtitle("Percent of samples representing each sub-region", 
+          subtitle="Horizontal line represents 70% cutoff") + 
+  theme(axis.text=element_text(size=8), legend.position="none") +
+  xlab("Subregions") +  ylab("Percent represented by samples") 
+
+  
+```
+
+## Quality Control - Per Animal
+```{r}
+
+
+  
+```
+
+
+
+## ARC vs H2BGFP Correlation
+there is non
+```{r}
+total.weighted %>%
+  merge(., animal_details %>% dplyr::select(FREEZE, ID), by='ID') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL %in% c('H2BGFP', 'ArcIHC')) %>%
+  dcast(., ID + EXPT ~ CHANNEL, value.var = "weighted") %>%
+  # do(tidy(lm(., formula = ArcIHC ~ H2BGFP)))
+  ggplot() + aes(H2BGFP,ArcIHC)  + geom_point() + geom_smooth(method="lm") + 
+  facet_wrap(~EXPT, scales="free") + theme_minimal()
+
+```
+
+
+## What if I did 2-way ANOVA
+What if I did a 2-way to find the old SAA animals higher NormOL? 
+Nope. VALENCE:CONTEXT p=0.33
+```{r}
+total.weighted.box %>%
+  filter(EXPT=='OLD') %>%
+  filter(CHANNEL=='NormOL') %>%
+  do(tidy(aov(data=., boxed ~ VALENCE*CONTEXT)))
+```
+
+
+
+## H2BGFP FIGURE
+```{r, fig.width=5, fig.height=5}
+f1 = total.weighted %>% 
+  filter(CHANNEL %in% c('H2BGFP')) %>%
+  ggplot() + aes(EXPT, weighted, fill=VALENCE) + 
+  stat_summary(fun.y = "mean", geom="bar", position="dodge") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3), position=position_dodge(1)) + 
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle("Total brain H2BGFP density") +
+  theme_minimal() + 
+  expand_limits(y=0) + 
+  ylab("Weighted cell density") + xlab("Age groups")
+
+# GRAPH LIN REG ON DATA (UN-BOXED)
+f2 = knew.molten3 %>%
+  # filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='H2BGFP') %>%
+  group_by(ID, FREEZE,GROUP, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+  ggplot() + aes(FREEZE, weighted) + 
+  stat_summary(fun.y="mean", geom="point") +
+  facet_wrap(~EXPT, scales="free", ncol=3) + geom_smooth(method="lm") +
+  ggtitle("H2BGFP vs. Recall Freezing", subtitle="Shock only") +
+  theme_minimal() + xlab("Freeze at final recall") + ylab("Weighted cell density")
+
+f3 = knew.molten3 %>%
+  filter(CHANNEL %in% channel.list[c(2)]) %>%
+  # filter(!(EXPT =='YOUNG' & CONTEXT=='AA' & VALENCE == 'SHOCK' & FREEZE < 30)) %>% # removes young bad freezers
+  group_by(ID, System, VALENCE, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+  ggplot() + aes(VALENCE, weighted, color=EXPT, fill=EXPT) + 
+  stat_summary(fun.y = "mean", geom="point") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
+  facet_wrap(~System, scales="free", ncol=8) +
+  ggtitle("H2BGFP per system") + 
+  theme_minimal()  + expand_limits(y=0)  +
+  theme(axis.text=element_text(size=7),
+        strip.text.x = element_text(size = 7)) +
+  ylab("Weighted cell counts") + xlab("")
+
+
+as_ggplot(grid.arrange(f1, f2, f3, nrow=2, 
+                       layout_matrix = rbind(c(1,2), c(3,3)),
+                       heights=1:2)) + 
+  draw_plot_label(c("A","B","C"), x=c(0,0.5,0), y=c(1,1,0.66))
+
+
+```
+
+## ARCIHC FIGURE
+```{r, fig.width=5, fig.height=5}
+h1 = total.weighted %>% 
+  filter(CHANNEL %in% c('ArcIHC')) %>%
+  ggplot() + aes(EXPT, weighted, fill=VALENCE) + 
+  stat_summary(fun.y = "mean", geom="bar", position="dodge") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3), position=position_dodge(1)) + 
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle("Total brain ArcIHC density") +
+  theme_minimal() + 
+  expand_limits(y=0) + 
+  ylab("Weighted cell density") + xlab("Age groups")
+
+# GRAPH LIN REG ON DATA (UN-BOXED)
+h2 = knew.molten3 %>%
+  # filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='ArcIHC') %>%
+  group_by(ID, FREEZE,GROUP, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+  ggplot() + aes(FREEZE, weighted) + 
+  stat_summary(fun.y="mean", geom="point") +
+  facet_wrap(~EXPT, scales="free", ncol=3) + geom_smooth(method="lm") +
+  ggtitle("ArcIHC vs. Recall Freezing") +
+  theme_minimal() + xlab("Freeze at final recall") + ylab("Weighted cell density")
+
+h3 = knew.molten3 %>%
+  filter(CHANNEL=='ArcIHC') %>%
+  group_by(ID, System, VALENCE, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+  ggplot() + aes(VALENCE, weighted, color=EXPT, fill=EXPT) + 
+  stat_summary(fun.y = "mean", geom="point") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
+  facet_wrap(~System, scales="free", ncol=8) +
+  ggtitle("ArcIHC per system") + 
+  theme_minimal()  + expand_limits(y=0)  +
+  theme(axis.text=element_text(size=7),
+        strip.text.x = element_text(size = 7)) +
+  ylab("Weighted cell counts") + xlab("")
+
+
+as_ggplot(grid.arrange(h1, h2, h3, nrow=2, 
+                       layout_matrix = rbind(c(1,2), c(3,3)),
+                       heights=1:2)) + 
+  draw_plot_label(c("A","B","C"), x=c(0,0.5,0), y=c(1,1,0.666))
+
+```
+
+
+## NORMOL FIGURE
+```{r}
+
+```
+
+## GFAP FIGURES
+```{r, fig.width=5, fig.height=5}
+j1 = total.weighted %>% 
+  filter(CHANNEL %in% c('GFAP')) %>%
+  ggplot() + aes(EXPT, weighted, fill=VALENCE) + 
+  stat_summary(fun.y = "mean", geom="bar", position="dodge") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3), position=position_dodge(1)) + 
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle("Total brain GFAP density") +
+  theme_minimal() + 
+  expand_limits(y=0) + 
+  ylab("Weighted cell density") + xlab("Age groups")
+
+# GRAPH LIN REG ON DATA (UN-BOXED)
+j2 = knew.molten3 %>%
+  # filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='GFAP') %>%
+  group_by(ID, FREEZE,GROUP, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+  ggplot() + aes(FREEZE, weighted) + 
+  stat_summary(fun.y="mean", geom="point") +
+  facet_wrap(~EXPT, scales="free", ncol=3) + geom_smooth(method="lm") +
+  ggtitle("GFAP vs. Recall Freezing") +
+  theme_minimal() + xlab("Freeze at final recall") + ylab("Weighted cell density")
+
+j3 = knew.molten3 %>%
+  filter(CHANNEL=='GFAP') %>%
+  group_by(ID, System, VALENCE, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+  ggplot() + aes(VALENCE, weighted, color=EXPT, fill=EXPT) + 
+  stat_summary(fun.y = "mean", geom="point") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
+  facet_wrap(~System, scales="free", ncol=8) +
+  ggtitle("GFAP per system") + 
+  theme_minimal()  + expand_limits(y=0)  +
+  theme(axis.text=element_text(size=7),
+        strip.text.x = element_text(size = 7)) +
+  ylab("Weighted cell counts") + xlab("")
+
+
+as_ggplot(grid.arrange(j1, j2, j3, nrow=2, 
+                       layout_matrix = rbind(c(1,2), c(3,3)),
+                       heights=1:2)) + 
+  draw_plot_label(c("A","B","C"), x=c(0,0.5,0), y=c(1,1,0.666))
+
+
+knew.molten3 %>%
+  filter(CHANNEL=='GFAP') %>%
+  group_by(ID, FREEZE,GROUP, VALENCE, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+  ggplot() + aes(FREEZE, weighted) + 
+  stat_summary(fun.y="mean", geom="point") +
+  facet_wrap(VALENCE~EXPT, scales="free", ncol=3) + geom_smooth(method="lm") +
+  ggtitle("GFAP vs. Recall Freezing") +
+  theme_minimal() + xlab("Freeze at final recall") + ylab("Weighted cell density")
+
+sys.weighted.box %>%
+  merge(., animal_details %>% select(FREEZE,ID), by='ID') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  filter(System=='SUBIC-HPC') %>%
+  filter(CHANNEL %in% c('GFAP')) %>%
+  group_by(EXPT) %>%
+  do(tidy(lm(data=., formula = boxed ~ FREEZE))) %>%
+  filter(!term=="(Intercept)") %>%
+  mutate(sig = 
+           case_when(
+             p.value < 0.001 ~ "***",
+             p.value < 0.01 ~ "**", 
+             p.value < 0.05 ~ "*"
+           ))
+
+```
+
+```{r, fig.height=1.5, fig.width=1.5}
+ total.weighted %>% 
+  filter(CHANNEL %in% c('GFAP')) %>%
+  ggplot() + aes(EXPT, weighted, fill=VALENCE) + 
+  stat_summary(fun.y = "mean", geom="bar", position="dodge") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.3), position=position_dodge(1)) + 
+  facet_wrap(~CHANNEL, scales="free") +
+  ggtitle("Total brain GFAP density") +
+  theme_minimal() + 
+  expand_limits(y=0) + 
+  ylab("Weighted cell density") + xlab("Age groups") + 
+  scale_fill_brewer()
+```
+
+```{r, fig.height=1.5, fig.width=8}
+knew.molten3 %>%
+  filter(CHANNEL=='GFAP') %>%
+  group_by(ID, System, VALENCE, EXPT, CHANNEL, variable) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) %>%
+  ggplot() + aes(VALENCE, weighted, color=EXPT, fill=EXPT) + 
+  stat_summary(fun.y = "mean", geom="point") + 
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) + 
+  facet_wrap(~System, scales="free", ncol=14) +
+  ggtitle("GFAP per system") + 
+  theme_minimal()  + expand_limits(y=0)  +
+  theme(axis.text=element_text(size=7),
+        strip.text.x = element_text(size = 7)) +
+  ylab("Weighted cell counts") + xlab("") + rx
+```
+### GFAP Arc correlations
+```{r, fig.height=1, fig.width=2.7}
+# GRAPH
+sys.weighted %>%
+  group_by(CHANNEL, System) %>%
+  mutate(weighted.z = scale(weighted)) %>%
+  filter(System %in% c('SUBIC-HPC', 'PFC', 'POST ASSOC CTX')) %>%
+  filter(EXPT=='OLD') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  dcast(ID + CONTEXT + System~ CHANNEL, value.var="weighted.z") %>%
+  group_by(System) %>%
+  # do(tidy(lm(., formula = ArcIHC ~ GFAP))) %>% put_sig_scores()
+  ggplot() + aes(GFAP, ArcIHC) + geom_point(aes(color=CONTEXT)) + facet_wrap(~System,nrow=1, scales="free") + geom_smooth(method="lm") + 
+  theme_minimal() + ylab("ArcIHC (z)") + xlab("GFAP (z)")
+
+```
+### GFAP Freeze correlations
+```{r, fig.height=1, fig.width=1}
+# GRAPH
+total.weighted %>%
+  group_by(CHANNEL) %>%
+  mutate(weighted.z = scale(weighted)) %>%
+  filter(EXPT=='OLD') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  
+  dcast(ID ~ CHANNEL, value.var="weighted.z") %>%
+  # do(tidy(lm(., formula = ArcIHC ~ GFAP))) %>% put_sig_scores()
+  ggplot() + aes(GFAP, ArcIHC) + geom_point()  + geom_smooth(method="lm") + 
+  theme_minimal() + ylab("ArcIHC (z)") + xlab("GFAP (z)")
+
+total.weighted %>%
+  group_by(CHANNEL) %>%
+  mutate(weighted.z = scale(weighted)) %>%
+  filter(EXPT=='OLD') %>%
+  filter(VALENCE == 'SHOCK') %>%
+  merge(., animal_details %>% select(FREEZE, ID), by='ID') %>%
+  dcast(ID + FREEZE~ CHANNEL, value.var="weighted.z") %>%
+  # do(tidy(lm(., formula = ArcIHC ~ GFAP))) %>% put_sig_scores()
+  ggplot() + aes(GFAP, FREEZE) + geom_point()  + geom_smooth(method="lm") + 
+  theme_minimal() + ylab("Freezing (%)") + xlab("GFAP (z)")
+
+```
+
+

@@ -1,7 +1,7 @@
 # creates the normalized OL variables
 
 ol = function(OL, A, B) {
-  NormOL = OL / (A + B - OL)
+  NormOL = OL/(A + B - OL)
   NormOL
 }  
 ol(.5, 1, .5)

@@ -1,0 +1,27 @@
+
+% Table created by stargazer v.5.2.2 by Marek Hlavac, Harvard University. E-mail: hlavac at fas.harvard.edu
+% Date and time: Tue, Feb 05, 2019 - 20:07:39
+\begin{table}[!htbp] \centering 
+  \caption{} 
+  \label{} 
+\begin{tabular}{@{\extracolsep{5pt}}lccccccc} 
+\\[-1.8ex]\hline 
+\hline \\[-1.8ex] 
+Statistic & \multicolumn{1}{c}{N} & \multicolumn{1}{c}{Mean} & \multicolumn{1}{c}{St. Dev.} & \multicolumn{1}{c}{Min} & \multicolumn{1}{c}{Pctl(25)} & \multicolumn{1}{c}{Pctl(75)} & \multicolumn{1}{c}{Max} \\ 
+\hline \\[-1.8ex] 
+ID & 112 & 6,397.893 & 2,602.189 & 3,307 & 3,432 & 8,452.2 & 9,276 \\ 
+Animal & 112 & 6,397.893 & 2,602.189 & 3,307 & 3,432 & 8,452.2 & 9,276 \\ 
+Freeze.Cnt & 112 & 7.241 & 4.125 & 0 & 4 & 10 & 19 \\ 
+Time.Freezing & 112 & 35.255 & 19.868 & 0.000 & 18.375 & 50.425 & 73.100 \\ 
+Pct.Total.Time.Freezing & 112 & 7.834 & 4.415 & 0.000 & 4.083 & 11.210 & 16.240 \\ 
+Pct.Component.Time.Freezing & 112 & 49.596 & 28.436 & 0.000 & 23.695 & 74.785 & 95.110 \\ 
+Avg.Motion.Index & 112 & 66.457 & 53.055 & 3.320 & 26.203 & 94.040 & 267.810 \\ 
+Min.Motion.Index & 112 & 0.000 & 0.000 & 0 & 0 & 0 & 0 \\ 
+Max.Motion.Index & 112 & 2,480.723 & 1,589.114 & 392 & 1,121.8 & 3,588.5 & 6,624 \\ 
+X & 112 & 55.000 & 23.392 & 25 & 32.5 & 70.8 & 92 \\ 
+AGE & 112 & 58.143 & 39.392 & 8 & 29.2 & 101 & 103 \\ 
+Mouse.ID. & 112 & 6,397.893 & 2,602.189 & 3,307 & 3,432 & 8,452.2 & 9,276 \\ 
+FREEZE & 112 & 25.357 & 29.165 & 0 & 3 & 35.5 & 95 \\ 
+\hline \\[-1.8ex] 
+\end{tabular} 
+\end{table} 

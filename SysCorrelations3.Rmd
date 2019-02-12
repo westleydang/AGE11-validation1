@@ -13,9 +13,8 @@ Conditions in this set of graphs:
 
 ```{r, message=F}
 # source("LoadLibs.R")
-library(ggpubr)
-library(grid)
-library(gridExtra)
+
+require(MASS)
 
 cluster.method = "hclust"
 use.method = "complete.obs"
@@ -66,7 +65,6 @@ make_heatmap2 = function(test.results, title) {
            diag=T, tl.pos = "l")
 }
 
-compare_matrix_r(arcodd, arceven, "odd", "even")
 ```
 
 
@@ -87,7 +85,6 @@ flattenCorrMatrix <- function(cormat, pmat) {
 compare_sigs = function(mat1, mat2) {
 
 }
-
 
 # DEFINE MATRIX FOR MAKING GENERAL COMPARISONS
 compare_matrix_r = function(x,y, namex, namey) {
@@ -135,9 +132,10 @@ compare_matrix_r = function(x,y, namex, namey) {
                values = c(x.vector, y.vector)) 
   print(
     df %>%
-      ggplot() + aes(values, group=var, fill=var, alpha=0.5) + geom_density() + 
+      ggplot() + aes(values, group=var, fill=var) + geom_density(alpha=0.5) + 
       theme_minimal() + xlim(-1,1) + xlab("Pearson's R") +
-      ylab("Frequency") + ggtitle("Distribution of R values")
+      ylab("Frequency") 
+      # ggtitle("Distribution of R values")
   )
     print(
     df %>%
@@ -149,22 +147,49 @@ compare_matrix_r = function(x,y, namex, namey) {
   
   flat1 = flattenCorrMatrix(x$r, x$P) %>% mutate(comp = paste(row, column))
   flat2 = flattenCorrMatrix(y$r, y$P) %>% mutate(comp = paste(row, column))
-  flat.both = merge(flat1, flat2 %>% select(p, comp), by="comp")
+  flat.both = merge(flat1, flat2 %>% dplyr::select(cor, p, comp), by="comp")
   flat.both = flat.both %>% mutate(p.delta = case_when(
     p.x < 0.05 & p.y < 0.05 ~ "s-s",
     p.x < 0.05 & p.y > 0.05 ~ "s-ns",
     p.x > 0.05 & p.y < 0.05 ~ "ns-s",
-    p.x > 0.05 & p.y > 0.05 ~ "ns-ns")
+    p.x > 0.05 & p.y > 0.05 ~ "ns-ns"),
+    p.sign = case_when(
+      cor.x > 0 & cor.y > 0 ~ "++",
+      cor.x > 0 & cor.y < 0 ~ "+-",
+      cor.x < 0 & cor.y < 0 ~ "--",
+      cor.x < 0 & cor.y > 0 ~ "-+"
+    )
   )
   results = summary(as.factor(flat.both$p.delta))
-  results
+  results2 = summary(as.factor(flat.both$p.sign))
   
   barplot(results, main=paste("Change: ", namex, "to", namey))
+  barplot(results2, main=paste("Change sign: ", namex, "to", namey))
   
 }
 
 
 ```
+
+# Define MANOVA function
+```{r}
+
+get_manova = function(df) {
+  data.manova = df %>% dcast(ID + EXPT + GROUP + VALENCE + CONTEXT ~ System, value.var = "boxed")
+  data.manova = complete(mice(data.manova, m=5, seed=25))
+  response = as.matrix((data.manova[,6:18]))
+  g = as.vector(data.manova[,"GROUP"])
+  e = as.vector(data.manova[,"EXPT"])
+  v = as.vector(data.manova[,"VALENCE"])
+  c = as.vector(data.manova[,"CONTEXT"])
+  m = manova(response ~ e * v * c)
+  summary(m, test="Hotelling")
+  
+}
+
+
+```
+
 
 # Define PCA function
 ```{r}
@@ -179,9 +204,15 @@ get_data_matrix = function(df) {
 get_pca = function(df, dfname) {
   
   adm = df %>% get_data_matrix()
-  adm[is.na(adm)] = 0
+    
+  # remove spaces? 
+names(adm) = gsub(" ", "_", names(adm))
+names(adm) = gsub("-", ".", names(adm))
+  adm = mice::complete(mice::mice(adm, m=5, seed=10))
   rownames(adm) = adm$ID # make ID the rownames
-  adm = adm %>% select(2:16) # remove ID
+
+
+  adm = adm %>% dplyr::select(2:length(adm)) # remove ID
   pr = prcomp(na.omit(adm), scale=T)
   print(summary(pr))
   print(biplot(pr))
@@ -199,8 +230,7 @@ get_pca = function(df, dfname) {
     theme_minimal()
 )
   
-  
-  pr.data = data.frame(Sample=rownames(pr$x), X = pr$x[,1], Y = pr$x[,2])
+  pr.data = data.frame(Sample=rownames(pr$x), X = pr$x[,1], Y = pr$x[,1])
   pr.data$ID = pr.data$Sample
   
   pr.data=merge(pr.data, animal_details[2:length(animal_details)])
@@ -208,10 +238,16 @@ get_pca = function(df, dfname) {
   
   
   # PRINT SOME GRAPHS
-  
   print(
-    ggplot(pr.data) + aes(X, Y, label=GRAIN,color=GRAIN) + geom_point() + theme_minimal()  + stat_ellipse() + facet_wrap(~EXPT) +
-    xlab("PC1") + ylab("PC2") + ggtitle(paste(dfname,"PCA by experimental group"))
+    ggplot(pr.data) + 
+      aes(X, Y, label=GRAIN, color=GRAIN) + 
+      geom_point() + 
+      theme_minimal()  + 
+      stat_ellipse() + 
+      facet_wrap(~EXPT) +
+      xlab("PC1") + ylab("PC2") + 
+      ggtitle(paste(dfname,"PCA by experimental group")) +
+      geom_text()
   )
   
   print(
@@ -220,7 +256,7 @@ get_pca = function(df, dfname) {
   )
     
   print(
-    ggplot(pr.data) + aes(X, Y, label=FREEZE,color=VALENCE) + geom_text() + theme_minimal() + stat_ellipse() + 
+    ggplot(pr.data) + aes(X, Y, label=FREEZE,color=VALENCE) + geom_text(aes(X,Y, label=VALENCE)) + theme_minimal() + 
       xlab("PC1") + ylab("PC2") + ggtitle(paste(dfname, "Component space, by young/old, labeled freezing score")) + 
       facet_wrap(~EXPT)
   )
@@ -236,18 +272,104 @@ get_pca = function(df, dfname) {
 ```
 
 
-# ARCIHC
+# Define LDA function
 ```{r}
-# SUBSET FOR ARC ONLY
-arc = sys.weighted %>% filter(CHANNEL=='ArcIHC') 
+# LDA DEFINE FUNCTION
+get_lda = function(df, dfname) {
+  data.for.lda = df %>%
+  ddply(.(System), transform, z = scale(weighted)) %>%
+  dcast(ID ~ System, value.var="z", fun.aggregate = mean, .drop=T) 
+
+  data.for.lda = merge(data.for.lda, animal_details %>% mutate(GRAIN = paste(EXPT, VALENCE)) %>% dplyr::select(ID, GRAIN), by="ID")
+  
+  # remove spaces? 
+  names(data.for.lda) = gsub(" ", "_", names(data.for.lda))
+  names(data.for.lda) = gsub("-", ".", names(data.for.lda))
+  
+  # impute missing data
+  data.for.lda = mice::complete(mice(data.for.lda, m=5, seed=25))
+
+  # lda
+  r <- lda(formula = GRAIN ~ ., 
+           data = data.for.lda[,2:ncol(data.for.lda)], 
+           prior = c(1,1,1,1)/4)
+  
+  # get lda scalings/coefs
+  dl <- data.frame(varnames=rownames(coef(r)), coef(r)) 
+  dl$length <- with(dl, sqrt(LD1^2+LD2^2))
+  
+  scaling_text = geom_text(
+    data = dl,
+    aes(
+      x = LD1,
+      y = LD2,
+      label = varnames,
+      linetype = NULL,
+      alpha = length,
+      position = "identity"
+    ),
+    size = 4,
+    vjust = .5,
+    hjust = 0,
+    color = "red"
+  )
+  
+  
+  scaling_arrows =  geom_segment(
+    data = dl,
+    aes(
+      x = 0,
+      y = 0,
+      xend = LD1,
+      yend = LD2,
+      linetype = NULL,
+      alpha = length
+    ),
+    arrow = arrow(length = unit(0.1, "mm")),
+    color = "red"
+  ) 
+  prop = r$svd^2/sum(r$svd^2)
+  
+  plda = predict(object = r, # predictions
+                 newdata = data.for.lda)
+  
+  plda$class
+  
+  dataset = data.frame(GRAIN = data.for.lda[,"GRAIN"],
+                       lda = plda$x) 
+  
+  p1 <- ggplot(dataset) + geom_point(aes(lda.LD1, lda.LD2, colour = GRAIN, shape = GRAIN), size = 2.5) + 
+    labs(x = paste("LD1 (", round(100*(prop[1])/sum(prop),2), "%)", sep=""),
+         y = paste("LD2 (", round(100*(prop[2])/sum(prop),2), "%)", sep="")) +
+    
+    # ggtitle(paste(dfname, "LDA for each age and conditioning")) +
+    theme_minimal() + 
+    stat_ellipse(aes(x=lda.LD1, y=lda.LD2, fill = GRAIN), alpha = 0.2, geom = "polygon") +
+    theme(legend.position="top", legend.title=element_text(colour="white")) + 
+    scaling_text + scaling_arrows
+  
+  print(p1)
+  
+}
 
 
-get_pca(arc, "ArcIHC")
+
 ```
 
 
-Is there a difference between odd/even animals? That should be a control.
+# ARCIHC
+```{r}
+# SUBSET FOR ARC ONLY
+arc = sys.weighted %>% filter(CHANNEL=='ArcIHC')
+
+# get_pca(arc, "ArcIHC")
+get_lda(arc, "ArcIHC")
+# get_manova(arc)
+```
+
+
 ### Control
+Is there a difference between odd/even animals? That should be a control.
 ```{r}
 arcodd = arc %>%
   filter((ID %%2) == T) %>%
@@ -259,9 +381,8 @@ arceven = arc %>%
 
 compare_matrix_r(arcodd, arceven, "odd", "even")
 
-
 ```
-### Arc::VALENCE stats = ***
+### Arc::VALENCE stats
 
 ```{r, message=F}
 
@@ -275,15 +396,12 @@ av2 = arc %>%
 
 compare_matrix_r(av1, av2, "Context", "Shock")
 
-
-
+hotelling.test(av1$r, av2$r)
 
 ```
 
-### Arc::EXPT = ***
+### Arc::EXPT
 ```{r}
-
-# Get Z dist of CONTEXT
 arc.age1 = arc %>%
   filter(EXPT == 'YOUNG') %>%
   get_corrtest_sys() 
@@ -294,16 +412,12 @@ arc.age2 = arc %>%
 
 compare_matrix_r(arc.age1, arc.age2, "Young", "Old")
 
-
-
-
 ```
 
 
-### Arc::CONTEXT = ***
+### Arc::CONTEXT 
 ```{r}
 
-# Get Z dist of CONTEXT
 arc.c1 = arc %>%
   filter(CONTEXT == 'AB') %>%
   get_corrtest_sys() 
@@ -314,13 +428,10 @@ arc.c2 = arc %>%
 
 compare_matrix_r(arc.c1, arc.c2, "AB", "AA")
 
-
-
-
 ```
 
 ## Arc - EXPT:VALENCE
-```{r}
+```{r, message=F}
 
 arc.ys = arc %>%
   filter(EXPT=='YOUNG') %>%
@@ -345,38 +456,46 @@ arc.oc = arc %>%
 ```
 
 
-### Arc Young CTX vs SHK = ***
+### Arc Young-CTX vs Young-SHK
 ```{r}
 
-compare_matrix_r(arc.yc, arc.ys, "youngCTX", "youngSHK")
+compare_matrix_r(arc.yc, arc.ys, "Young CTX", "Young SHK")
 
 ```
 
-### Arc Old CTX vs SHK = ns
+### Arc OldCTX vs OldSHK
 ```{r}
 
-compare_matrix_r(arc.oc, arc.os, "oldCTX", "oldSHK")
+compare_matrix_r(arc.oc, arc.os, "Old CTX", "Old SHK")
 ```
 
 ### Arc OLD CTX vs YOUNG CTX
 ```{r}
 
-compare_matrix_r(arc.oc, arc.yc, "oldCTX", "yCTX")
+compare_matrix_r(arc.yc, arc.oc, "Young CTX", "Old CTX")
 ```
 ### Arc OLD SHK vs YOUNG SHK
 ```{r}
 
-compare_matrix_r(arc.ys, arc.os, "ySHK", "oSHK")
+compare_matrix_r(arc.ys, arc.os, "Young SHK", "Old SHK")
 ```
 
 
 # H2BGFP
 ```{r}
 # SUBSET FOR ARC ONLY
-gfp = sys.weighted %>% filter(CHANNEL=='H2BGFP') 
+gfp = sys.weighted %>% filter(CHANNEL=='H2BGFP')
 
-get_pca(gfp, "H2BGFP")
+# get_pca(gfp, "H2BGFP")
+# get_lda(gfp, "H2BGFP")
+# get_manova(gfp)
 ```
+## LDA
+```{r, fig.height=2, fig.width=3.5}
+
+get_lda(gfp, "H2BGFP")
+```
+
 
 ###Control
 ```{r}
@@ -392,7 +511,7 @@ compare_matrix_r(godd, geven, "odd", "even")
 ```
 
 
-### GFP::VALENCE stats = ***
+### GFP::VALENCE stats
 ```{r}
 
 gv1 = gfp %>%
@@ -405,11 +524,10 @@ gv2 = gfp %>%
 
 compare_matrix_r(gv1, gv2, "context", "shock")
 
-
 ```
 
 
-### GFP::EXPT = ns
+### GFP::EXPT 
 ```{r}
 
 gfp.age1 = gfp %>%
@@ -451,26 +569,34 @@ gfp.oc = gfp %>%
 ```
 
 
-### gfp Young CTX vs SHK = *
+### gfp Young CTX vs SHK 
 ```{r}
-
-
 compare_matrix_r(gfp.ys, gfp.yc, "ySHK", "yCTX")
 ```
 
-### gfp Old CTX vs SHK = **
+### gfp Old CTX vs SHK
 ```{r}
-
 compare_matrix_r(gfp.os, gfp.oc, "oSHK", "oCTX")
 ```
 
 
+### gfp Old CTX vs Young CTX
+```{r}
+compare_matrix_r(gfp.oc, gfp.yc, "Old CTX", "Old SHK")
+```
+### gfp Old SHK Young SHK
+```{r}
+compare_matrix_r(gfp.ys, gfp.os, "Young SHK", "Old SHK")
+```
 
 # NormOL
 ```{r}
 # SUBSET FOR ARC ONLY
 nol = sys.weighted %>% filter(CHANNEL=='NormOL')
 get_pca(nol, "NormOL")
+get_lda(nol, "NormOL")
+get_manova(nol)
+
 ```
 
 ### Control
@@ -486,7 +612,7 @@ neven = nol %>%
 compare_matrix_r(nodd, neven, "odd", "even")
 ```
 
-### NormOL::VALENCE stats = **
+### NormOL::VALENCE stats 
 ```{r}
 
 nv1 = nol %>%
@@ -502,7 +628,7 @@ compare_matrix_r(nv1, nv2, "context", "shock")
 ```
 
 
-### NormOL::EXPT = ns
+### NormOL::EXPT
 ```{r}
 
 # Get Z dist of CONTEXT
@@ -518,7 +644,7 @@ compare_matrix_r(nol.age1, nol.age2, "young", "old")
 
 ```
 
-## NormOL - EXPT:VALENCE Mantel test
+## NormOL - EXPT:VALENCE
 ```{r}
 
 nol.ys = nol %>%
@@ -544,13 +670,13 @@ nol.oc = nol %>%
 ```
 
 
-### NormOL Young CTX vs SHK = **
+### NormOL Young CTX vs SHK
 ```{r}
 
 compare_matrix_r(nol.ys, nol.yc, "shock", "context")
 ```
 
-### NormOL Old CTX vs SHK = **
+### NormOL Old CTX vs SHK
 ```{r}
 
 compare_matrix_r(nol.os, nol.oc, "shock", "context")
