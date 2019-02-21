@@ -3,7 +3,8 @@
 data.for.lda = arc %>%
   ddply(.(System), transform, z = scale(weighted)) %>%
   dcast(ID ~ System, value.var="z", fun.aggregate = mean, .drop=T) 
-  
+
+
 data.for.lda = merge(data.for.lda, animal_details %>% 
                        # filter(EXPT=='OLD') %>%
                        mutate(GRAIN = paste(EXPT, VALENCE)) %>% 
@@ -22,7 +23,7 @@ meth = init$method
 predM = init$predictorMatrix
 
 # remove ID from imputing
-predM[, c("ID", "GRAIN")] = 0
+predM[, c("ID")] = 0
 mice.imputed = mice(data.for.lda, method=meth, predictorMatrix=predM, m=5)
 data.for.lda = mice::complete(mice.imputed)
 
