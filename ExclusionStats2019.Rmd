@@ -1,0 +1,150 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+# Load and setup stuff
+```{r}
+
+# load the data, these are pre-exclusion
+csvfiles = list.files(path = "All AGE 10 series counts-03232018/CombinedCounts/", full.names = TRUE)
+raw = do.call("rbind", lapply(csvfiles, FUN = function(file) read.csv(file, header = TRUE, sep = ",")))
+# make the column names easier to read by removing the 'X.'
+colnames(raw) <- gsub('X.', '', colnames(raw), fixed = TRUE)
+raw0=raw
+
+
+# Load in the image metadata and clean it
+exfiles = list.files(path = "All AGE 10 series counts-03232018/Rotations or Exclusions - From Manual Validations", full.names = TRUE)
+
+# KK's usual file naming pattern is:
+# seq _ z _ bregma _ animal _ flags .tif
+# So find num_num_num_num_ with optional '-' for negative bregma
+root_pat = "^[:digit:]{1,3}_[:digit:]{1,3}_[-]?.{1,3}_[:xdigit:]{1,4}_"
+
+
+ex = do.call("rbind", lapply(exfiles, FUN = function(file) {
+  data.frame(
+    read.csv(file, header = TRUE, sep = ",", fileEncoding="UTF-8-BOM"), 
+    round = basename(file) )}
+))
+
+# Clean the 'ex' dataframe
+clean_shellshit = function(string, pattern)
+{
+  new = str_extract(string, pattern)
+  string = new
+}
+pat_shell = "[:digit:]{1,4}"
+ex$Width = mapply(clean_shellshit, string = ex$Width, pattern = pat_shell)
+ex$Height = mapply(clean_shellshit, string = ex$Height, pattern = pat_shell) 
+ex$Width = as.numeric(ex$Width)
+ex$Height = as.numeric(ex$Height)
+
+
+ex = ex %>% mutate(error = ifelse(Height > Width, "ERROR", "Safe"))
+
+# III. 
+# Source the revisions
+revfiles = list.files(path = "All AGE 10 series counts-03232018/Revisions - From Manual Validations", full.names = TRUE)
+rev = do.call("rbind", lapply(revfiles, FUN = function(file) {
+  data.frame(
+    read.csv(file, header = TRUE, sep = ",", fileEncoding="UTF-8-BOM"), 
+    round = basename(file),
+    is_excluded = TRUE)}
+))
+colnames(rev) <- gsub('X.', '', colnames(rev), fixed = TRUE)
+rev0 = rev
+
+```
+
+
+# Do stuff
+```{r}
+
+
+raw = raw %>% mutate(f_root = str_extract(as.character(File.Name.), root_pat),
+                     is_excluded = ifelse(f_root %in% ex.errors, "yes", "no"))
+raw$is_excluded = as.factor(raw$is_excluded)
+
+# summary(raw$is_excluded)
+
+
+rev = rev %>% 
+  dcast(Mouse.ID. + Bregma. + File.Name. ~ Sub.ROI., value.var="Ch1.Mean.", fun.aggregate=mean) %>%
+  dplyr::select(1:3) 
+rev$File.Name. = as.character(rev$File.Name.)
+rev1 = rev #chkpt
+rev = rev %>%
+  mutate(rev_root = str_extract(File.Name., root_pat)) %>%
+  mutate(img = str_split(rev_root, "_", simplify=T)[1]) %>%
+  mutate(img_grain = paste(Mouse.ID., img))
+
+
+raw$Mouse.ID. = as.character(raw$Mouse.ID.)
+raw$File.Name. = as.character(raw$File.Name.)
+raw$Bregma. = as.character(raw$Bregma.)
+raw = raw %>%
+  mutate(img = str_split(File.Name., "_", simplify=T)[1],
+         img_grain = paste(Mouse.ID., img))
+
+raw = raw %>% 
+  mutate(was_revised = ifelse(img_grain %in% rev$img_grain, "yes", "no"))
+raw$was_revised = as.factor(raw$was_revised)
+
+
+raw = raw %>%
+  dcast(Mouse.ID. + Bregma. + File.Name. + is_excluded + was_revised ~ Sub.ROI., value.var="Ch1.Mean.", fun.aggregate=length) %>%
+  dplyr::select(1:8)
+raw = raw[-1,]
+
+
+# raw1 = raw # chkpt
+
+raw = raw %>% mutate(lost = case_when(
+  is_excluded=='yes' & was_revised=='no' ~ "lost", 
+  is_excluded=='no' ~ "ok",
+  is_excluded=='yes' & was_revised=='yes' ~ "recovered"))
+raw$lost = as.factor(raw$lost)
+
+# ok now get stats
+summary(raw$is_excluded)
+summary(raw$was_revised)
+summary(raw$lost)
+
+```
+
+```{r}
+
+
+# ok now see if you can see which bregma changed
+# raw = raw %>% 
+#   mutate(img_grain = paste(Mouse.ID., str_split(File.Name., "_", simplify=T)[1]))
+
+merge(raw, rev, by="img_grain")
+
+rev.to.merge = rev %>% dplyr::select(c(img_grain, File.Name.))
+rev.to.merge = rev.to.merge[-c(1:2)]
+names(rev.to.merge)[2] = "rev_fn"
+names(rev.to.merge)
+
+raw$Bregma. = as.numeric(as.character(raw$Bregma.))
+raw$File.Name. = as.character(raw$File.Name.)
+rev$rev_fn = as.character(rev$rev_fn)
+
+
+raw %>%
+  mutate(img_grain = paste(Mouse.ID., str_split(File.Name., "_", simplify=T)[1])) %>%
+  merge(., rev.to.merge, by="img_grain") %>%
+  mutate(
+    old.bregma = str_split(as.character(File.Name.), "_", simplify=T)[3],
+    new.bregma = str_split(as.character(rev_fn), "_", simplify=T)[3]
+  )
+
+
+```
+
