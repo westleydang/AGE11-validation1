@@ -16,6 +16,7 @@ output: html_notebook
 
 library(grid)
 library(gridExtra)
+library(ggpubr)
 
 fc_data = read.csv("AGE10-16 FC.csv", header=T) # source
 
@@ -36,6 +37,27 @@ fc_data2 = merge(fc_data2, animal_details, by="ID")
 # 
 # attach(fc_data)
 # attach(fc_data2)
+
+
+# change all the "OLD" to "AGED" for figures
+aged = function(x) {
+  x$EXPT = as.character(x$EXPT)
+  x$EXPT[x$EXPT=='OLD'] = 'AGED'
+  x$EXPT = as.factor(x$EXPT)
+  x
+}
+total.weighted %>% aged()
+
+
+
+# remove grid lines
+remove_grids = function(x) {
+  theme(panel.grid.minor = element_blank())
+}
+
+remove_legend = function(x) {
+  theme(legend.position = "none")
+}
 
 ```
 
@@ -113,6 +135,20 @@ shock_only %>%
                color="black", aes(group=Component.Name,width=0.2)) + 
   rx + theme(legend.position = "none")
 
+# without the backgroind individuals
+shock_only %>%
+  ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, color=EXPT) +
+  facet_wrap(~EXPT) + theme_minimal() +
+  ggtitle("Individual freezing after each shock",
+          subtitle="Shocked animals only") +
+  xlab("Post-shock periods") + ylab("Percent Freezing") + 
+  stat_summary(fun.data="mean_se", geom="errorbar", 
+               aes(group=Component.Name,width=0.2)) +
+  stat_summary(fun.y="mean", geom="point", 
+               aes(group=Component.Name,width=0.2)) + 
+  theme(legend.position = "none")
+
+
 # Average after each shock, by age
 c2 = shock_only %>%
   group_by(EXPT, VALENCE, ID, Component.Name) %>%
@@ -147,6 +183,36 @@ summary(lm(Pct.Component.Time.Freezing ~EXPT * Component.Name , data = shock_onl
 
 
 ```
+### figure
+```{r, fig.width=1.5, fig.height=1.25}
+
+shock_only %>% 
+
+  group_by(EXPT, VALENCE, ID, Component.Name) %>%
+  ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, group=EXPT, color=EXPT) +
+  # ggtitle("Individual freezing after each shock",
+          # subtitle="Shocked animals only") +
+  theme_light() +
+  # facet_wrap(~EXPT) +
+  xlab("Post-shock periods") + ylab("Percent Freezing") + 
+  stat_summary(fun.y="mean", geom="point", 
+               aes(group=Component.Name,width=0.2)) + 
+  stat_summary(fun.data="mean_se", geom="errorbar", 
+               aes(group=Component.Name,width=0.2)) +
+  theme(legend.position = "none") + scale_color_brewer(palette="Set1")
+
+shock_only %>%  aged() %>%
+  mutate(EXPT = factor(EXPT, levels=c('YOUNG', 'AGED'))) %>%
+  group_by(EXPT, VALENCE, ID, Component.Name) %>%
+  ggplot() + aes(Component.Name, Pct.Component.Time.Freezing, group=EXPT, color=EXPT) +
+  stat_summary(fun.y = "mean", geom="line") +
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) +
+  theme_minimal() + 
+  xlab("Post-shock periods for SAA groups") + ylab("Freezing %") +
+  theme(legend.position = "bottom") + scale_color_brewer(palette="Set1")
+
+```
+
 
 ## What are anomalies in post-shock freezing?
 ```{r}
@@ -171,22 +237,22 @@ avg.psp[avg.psp$avg < mean(avg.psp$avg) - 1*sd(avg.psp$avg),]
 
 # Graph each component versus the final recall freezing
 
-e1 = shock_only %>%
+shock_only %>%
   filter(CONTEXT=='AA') %>%
   ggplot(aes(Pct.Component.Time.Freezing, FREEZE, color=EXPT)) + geom_point() + 
   facet_wrap(~Component.Name, scales="free") +
   stat_smooth(method=lm) + theme_minimal() + 
-  ggtitle(paste("shock only", "AA")) +
+  ggtitle(paste("Recall vs Shock Trial correlations (shock animals only)", "AA")) +
   ylab("Freezing at final recall (4d)") +
   xlab("Freezing during training (each shock)") + 
   theme(legend.position="none")
 
-e2 = shock_only %>%
+shock_only %>%
   filter(CONTEXT=='AB') %>%
   ggplot(aes(Pct.Component.Time.Freezing, FREEZE, color=EXPT)) + geom_point() + 
   facet_wrap(~Component.Name, scales="free") +
   stat_smooth(method=lm) + theme_minimal() + 
-  ggtitle(paste("shock only", "AB")) +
+  ggtitle(paste("Recall vs Shock Trial correlations (shock animals only)", "AB")) +
   ylab("Freezing at final recall (4d)") +
   xlab("Freezing during training (each shock)") 
 
@@ -313,6 +379,34 @@ rc_avg %>%
   stat_summary(fun.data="mean_se", geom="errorbar", color='black', width=0.2) +
   theme_minimal() + ylab("Freezing %") + xlab("Experimental Group") +
   ggtitle("Freezing behavior at recall (4d)")
+
+
+rc_avg %>%
+  filter(CONTEXT=='AA') %>%
+  ggplot() + aes(y = avg.rc, x = CONTEXT, fill=EXPT) + 
+  facet_wrap(VALENCE~EXPT, nrow=1) +
+  stat_summary(fun.y = "mean", geom="bar") +
+  # geom_point(position = position_dodge(width=1)) +
+  stat_summary(fun.data="mean_se", geom="errorbar", color='black', width=0.2) +
+  theme_minimal() + ylab("Freezing %") + xlab("Experimental Group") +
+  ggtitle("Freezing behavior at recall (4d)")
+
+```
+
+### figure
+```{r, fig.width=1.5, fig.height=1.5}
+rc_avg %>%
+  filter(CONTEXT=='AA') %>%
+  aged() %>% mutate(EXPT = factor(EXPT, levels=c('YOUNG', 'AGED'))) %>%
+  ggplot() + aes(y = avg.rc, x = EXPT, fill=EXPT) + 
+  stat_summary(fun.y = "mean", geom="bar") +
+  # geom_point(position = position_dodge(width=1)) +
+  stat_summary(fun.data="mean_se", geom="errorbar", color='black', width=0.2) +
+  theme_light() + ylab("Freezing %") + xlab("Experimental Group") +
+  facet_wrap(~VALENCE) +
+  xlab("SAA groups") +
+  scale_fill_brewer(palette="Set1") + remove_legend() + remove_grids()
+
 
 ```
 
