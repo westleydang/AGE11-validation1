@@ -15,10 +15,23 @@ Conditions in this set of graphs:
 # source("LoadLibs.R")
 
 require(MASS)
+library(ade4)
+library(RColorBrewer)
+library(gplots)
 
 cluster.method = "hclust"
 use.method = "complete.obs"
 corr.type="pearson"
+
+```
+
+# Define function for changing AGE 10 to YOUNG
+```{r}
+
+change_expt_names = function(df) {
+  df %>%
+    mutate(EXPT = ifelse(EXPT == "AGE 10", "YOUNG", "OLD"))
+}
 
 ```
 
@@ -30,6 +43,10 @@ get_corrtest_sys = function(df) {
     # mutate(grain2 = paste(CHANNEL, System)) %>%
     ddply(.(CHANNEL, ID), transform, z = scale(weighted)) %>%
     dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
+  
+  # remove spaces
+  names(data) = gsub(" ", "_", names(data))
+  names(data) = gsub("-", ".", names(data))
   
   # IMPUTE MISSING VALUES 
   data = complete(mice(data, m=5, seed=500))
@@ -60,9 +77,9 @@ make_heatmap2 = function(test.results, title) {
   # heatmap(test.results, symm=T, col=heat.colors, main=title)
 
   
-  corrplot(test.results$r, title=title, p.mat=test.results$P, insig="label_sig",pch="*", sig.level=0.05,
+  corrplot(test.results$r, title=title, p.mat=test.results$P, insig="blank",pch="*", sig.level=0.05,
            order=cluster.method, method="color", mar=c(0,0,1,0), pch.col="white",pch.cex = 2,
-           diag=T, tl.pos = "l")
+           diag=T)
 }
 
 ```
@@ -106,6 +123,11 @@ compare_matrix_r = function(x,y, namex, namey) {
                  n2 = min(y$n))
   )
   
+  # MANTEL TEST
+  print(
+    mantel.rtest(as.dist(x$r), as.dist(y$r))
+  )
+  
   # print(
   #   cortest.mat(R1 = x$r,
   #                R2 = y$r,
@@ -116,8 +138,8 @@ compare_matrix_r = function(x,y, namex, namey) {
   # PRINT DIFFERENCE MATRIX
   yx = y$r - x$r
   title = paste("Difference (", namey, " - ", namex, ")")
-  corrplot(yx, title=title, order=cluster.method, method="color", 
-           mar=c(0,0,1,0), diag=T, tl.pos = "l") 
+  # corrplot(yx, title=title, order=cluster.method, method="color", 
+  #          mar=c(0,0,1,0), diag=T, tl.pos = "l") 
   
   
   # PRINT T-TEST PAIRED
@@ -195,9 +217,8 @@ get_manova = function(df) {
 ```{r}
 get_data_matrix = function(df) {
   data = df %>%
-    # mutate(grain2 = paste(CHANNEL, System)) %>%
     ddply(.(System), transform, z = scale(weighted)) %>%
-    dcast(ID ~ System, value.var="z", fun.aggregate = mean, .drop=T) 
+    dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
   data
 }
 
@@ -211,12 +232,10 @@ names(adm) = gsub("-", ".", names(adm))
   adm = mice::complete(mice::mice(adm, m=5, seed=10))
   rownames(adm) = adm$ID # make ID the rownames
 
-
   adm = adm %>% dplyr::select(2:length(adm)) # remove ID
   pr = prcomp(na.omit(adm), scale=T)
   print(summary(pr))
   print(biplot(pr))
-  
   
   plot(pr$x[,1], pr$x[,2]) # 
   pr.var = pr$sdev^2 # get variance by squaring eigenvalues
@@ -277,10 +296,13 @@ names(adm) = gsub("-", ".", names(adm))
 # LDA DEFINE FUNCTION
 get_lda = function(df, dfname) {
   data.for.lda = df %>%
-  ddply(.(System), transform, z = scale(weighted)) %>%
-  dcast(ID ~ System, value.var="z", fun.aggregate = mean, .drop=T) 
+  ddply(.(ID), transform, z = scale(weighted)) %>%
+  dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
 
-  data.for.lda = merge(data.for.lda, animal_details %>% mutate(GRAIN = paste(EXPT, VALENCE)) %>% dplyr::select(ID, GRAIN), by="ID")
+  data.for.lda = merge(data.for.lda, animal_details %>% 
+                         
+   mutate(EXPT = ifelse(EXPT == "AGE 10", "YOUNG", "OLD")) %>%
+   mutate(GRAIN = paste(EXPT, VALENCE)) %>% dplyr::select(ID, GRAIN), by="ID")
   
   # remove spaces? 
   names(data.for.lda) = gsub(" ", "_", names(data.for.lda))
@@ -297,6 +319,15 @@ get_lda = function(df, dfname) {
   # get lda scalings/coefs
   dl <- data.frame(varnames=rownames(coef(r)), coef(r)) 
   dl$length <- with(dl, sqrt(LD1^2+LD2^2))
+  dl = dl %>% mutate(pct.LD1 = 100*abs(LD1)/sum(abs(LD1))) %>% arrange(pct.LD1)
+  print(dl)
+  
+  print(
+      ggplot(dl) + aes(reorder(varnames, as.numeric(pct.LD1)), as.numeric(pct.LD1)) + geom_bar(stat="identity") + rx +
+        coord_flip() + theme_light() + xlab("System") + ylab("Proportion of variance") + 
+        theme(text = element_text(size=20))
+  )
+
   
   scaling_text = geom_text(
     data = dl,
@@ -304,9 +335,9 @@ get_lda = function(df, dfname) {
       x = LD1,
       y = LD2,
       label = varnames,
-      linetype = NULL,
-      alpha = length,
-      position = "identity"
+      # linetype = NULL,
+      alpha = length
+      # position = "identity"
     ),
     size = 4,
     vjust = .5,
@@ -322,18 +353,20 @@ get_lda = function(df, dfname) {
       y = 0,
       xend = LD1,
       yend = LD2,
-      linetype = NULL,
+      # linetype = NULL,
       alpha = length
     ),
     arrow = arrow(length = unit(0.1, "mm")),
     color = "red"
   ) 
+  
+  
   prop = r$svd^2/sum(r$svd^2)
   
   plda = predict(object = r, # predictions
                  newdata = data.for.lda)
-  
   plda$class
+  
   
   dataset = data.frame(GRAIN = data.for.lda[,"GRAIN"],
                        lda = plda$x) 
@@ -345,10 +378,30 @@ get_lda = function(df, dfname) {
     # ggtitle(paste(dfname, "LDA for each age and conditioning")) +
     theme_minimal() + 
     stat_ellipse(aes(x=lda.LD1, y=lda.LD2, fill = GRAIN), alpha = 0.2, geom = "polygon") +
-    theme(legend.position="top", legend.title=element_text(colour="white")) + 
+    theme(legend.position="right", legend.title=element_text(colour="white")) + 
+    scaling_text + scaling_arrows + ggtitle(paste("LDA for ", dfname))
+  
+    p2 <- ggplot(dataset) + geom_point(aes(lda.LD1, lda.LD3, colour = GRAIN, shape = GRAIN), size = 2.5) + 
+    labs(x = paste("LD1 (", round(100*(prop[1])/sum(prop),2), "%)", sep=""),
+         y = paste("LD3 (", round(100*(prop[3])/sum(prop),2), "%)", sep="")) +
+    theme_minimal() + 
+    stat_ellipse(aes(x=lda.LD1, y=lda.LD3, fill = GRAIN), alpha = 0.2, geom = "polygon") +
+    theme(legend.position="right", legend.title=element_text(colour="white")) + 
+    scaling_text + scaling_arrows
+    
+      p3 <- ggplot(dataset) + geom_point(aes(lda.LD3, lda.LD2, colour = GRAIN, shape = GRAIN), size = 2.5) + 
+    labs(x = paste("LD3 (", round(100*(prop[3])/sum(prop),2), "%)", sep=""),
+         y = paste("LD2 (", round(100*(prop[2])/sum(prop),2), "%)", sep="")) +
+    
+    # ggtitle(paste(dfname, "LDA for each age and conditioning")) +
+    theme_minimal() + 
+    stat_ellipse(aes(x=lda.LD3, y=lda.LD2, fill = GRAIN), alpha = 0.2, geom = "polygon") +
+    theme(legend.position="right", legend.title=element_text(colour="white")) + 
     scaling_text + scaling_arrows
   
   print(p1)
+  print(p2)
+  print(p3)
   
 }
 
@@ -360,15 +413,43 @@ get_lda = function(df, dfname) {
 # ARCIHC
 ```{r}
 # SUBSET FOR ARC ONLY
-arc = sys.weighted %>% filter(CHANNEL=='ArcIHC')
+arc = sys.weighted %>% filter(CHANNEL=='ArcIHC')  
+
+
 
 # get_pca(arc, "ArcIHC")
 get_lda(arc, "ArcIHC")
 # get_manova(arc)
 ```
 
+# All heatmap ArcIHC
+```{r}
 
-### Control
+arc.hm = arc %>%
+    # mutate(grain2 = paste(CHANNEL, System)) %>%
+    ddply(.(CHANNEL, ID), transform, z = scale(weighted)) %>%
+    dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
+  # ggplot() +aes(as.factor(ID), System, z=z, fill=z) + geom_tile() + rx
+# remove spaces? 
+  names(arc.hm) = gsub(" ", "_", names(arc.hm))
+  names(arc.hm) = gsub("-", ".", names(arc.hm))
+  
+  # impute missing data
+  arc.hm = mice::complete(mice(arc.hm, m=5, seed=25))
+rownames(arc.hm) = arc.hm$ID  
+
+ahm.cor = cor(arc.hm[2:length(arc.hm)])
+network=graph_from_adjacency_matrix( ahm.cor, weighted=T, mode="undirected", diag=F)
+layout_in_circle(network)
+plot(network)
+
+heatmap.2(as.matrix(arc.hm[2:length(arc.hm)]), trace="none", hclustfun = hclust,
+          col=(brewer.pal(11,"RdBu")),margins=c(10,10), main="ArcIHC, scaled within animal")
+
+```
+
+
+### Control ODD vs EVEN
 Is there a difference between odd/even animals? That should be a control.
 ```{r}
 arcodd = arc %>%
@@ -376,7 +457,7 @@ arcodd = arc %>%
   get_corrtest_sys()
 
 arceven = arc %>%
-  filter((ID%%2) ==F) %>%
+  filter((ID%%2) == F) %>%
   get_corrtest_sys()
 
 compare_matrix_r(arcodd, arceven, "odd", "even")
@@ -395,8 +476,8 @@ av2 = arc %>%
   get_corrtest_sys()
 
 compare_matrix_r(av1, av2, "Context", "Shock")
-
-hotelling.test(av1$r, av2$r)
+# 
+# hotelling.test(av1$r, av2$r)
 
 ```
 
@@ -490,6 +571,28 @@ gfp = sys.weighted %>% filter(CHANNEL=='H2BGFP')
 # get_lda(gfp, "H2BGFP")
 # get_manova(gfp)
 ```
+
+# H2BGFP Heatmap
+```{r}
+
+gfp.hm = gfp %>%
+    # mutate(grain2 = paste(CHANNEL, System)) %>%
+    ddply(.(CHANNEL, ID), transform, z = scale(weighted)) %>%
+    dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
+  # ggplot() +aes(as.factor(ID), System, z=z, fill=z) + geom_tile() + rx
+# remove spaces? 
+  names(gfp.hm) = gsub(" ", "_", names(gfp.hm))
+  names(gfp.hm) = gsub("-", ".", names(gfp.hm))
+  
+  # impute missing data
+  arc.hm = mice::complete(mice(gfp.hm, m=5, seed=25))
+rownames(gfp.hm) = gfp.hm$ID  
+
+
+heatmap.2(as.matrix(gfp.hm[2:length(gfp.hm)]), trace="none", hclustfun = hclust,
+          col=(brewer.pal(11,"RdBu")),margins=c(10,10), main="H2BGFP, scaled within animal")
+```
+
 ## LDA
 ```{r, fig.height=2, fig.width=3.5}
 
@@ -497,14 +600,14 @@ get_lda(gfp, "H2BGFP")
 ```
 
 
-###Control
+### Control ODD vs EVEN
 ```{r}
 godd = gfp %>%
-  filter((ID %%2) == T) %>%
+  filter((ID %% 2) == T) %>%
   get_corrtest_sys()
 
 geven = gfp %>%
-  filter((ID%%2) ==F) %>%
+  filter((ID%%2) == F) %>%
   get_corrtest_sys()
 
 compare_matrix_r(godd, geven, "odd", "even")
@@ -524,6 +627,21 @@ gv2 = gfp %>%
 
 compare_matrix_r(gv1, gv2, "context", "shock")
 
+```
+
+
+### GFP::CONTEXT
+```{r}
+
+gfp.c1 = gfp %>%
+  filter(EXPT == 'AA') %>%
+  get_corrtest_sys() 
+
+gfp.c2 = gfp %>%
+  filter(EXPT == 'AB') %>%
+  get_corrtest_sys()
+
+compare_matrix_r(gfp.c1, gfp.c2, "AA", "AB")
 ```
 
 
@@ -597,6 +715,27 @@ get_pca(nol, "NormOL")
 get_lda(nol, "NormOL")
 get_manova(nol)
 
+```
+
+# H2BGFP Heatmap
+```{r}
+
+nol.hm = nol %>%
+    # mutate(grain2 = paste(CHANNEL, System)) %>%
+    ddply(.(CHANNEL, ID), transform, z = scale(weighted)) %>%
+    dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
+  # ggplot() +aes(as.factor(ID), System, z=z, fill=z) + geom_tile() + rx
+# remove spaces? 
+  names(nol.hm) = gsub(" ", "_", names(nol.hm))
+  names(nol.hm) = gsub("-", ".", names(nol.hm))
+  
+  # impute missing data
+  arc.hm = mice::complete(mice(nol.hm, m=5, seed=25))
+rownames(nol.hm) = nol.hm$ID  
+
+
+heatmap.2(as.matrix(nol.hm[2:length(nol.hm)]), trace="none", hclustfun = hclust,
+          col=(brewer.pal(11,"RdBu")),margins=c(10,10), main="NormOL, scaled within animal")
 ```
 
 ### Control
