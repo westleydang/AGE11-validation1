@@ -3,101 +3,146 @@ title: "R Notebook"
 output: html_notebook
 ---
 
-This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
-
-Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
-
 # Permuting GFP Permutations
+
 ## Set up
-```{r}
-data.for.lda = gfp %>%
-  ddply(.(System), transform, z = scale(weighted)) %>%
+``` {r}
+
+library(PredPsych)
+library(MASS)
+
+# function for imputing
+impute_lda = function(x) {
+  
+  # remove spaces
+  names(x) = gsub(" ", "_", names(x))
+  names(x) = gsub("-", ".", names(x))
+  
+  # impute
+  x = mice::complete(mice(x, m=5, seed=25))
+  return(x)
+}
+
+cast_lda = function(x) {
+  result = x %>%
+  ddply(.(ID), transform, z = scale(weighted)) %>%
   dcast(ID ~ System, value.var="z", fun.aggregate = mean, .drop=T) 
-
-data.for.lda = merge(data.for.lda, animal_details %>% 
-                       # filter(EXPT=='OLD') %>%
-                       mutate(GRAIN = paste(EXPT, VALENCE)) %>% 
-                       dplyr::select(ID, GRAIN), by="ID")
-
-# remove spaces? 
-names(data.for.lda) = gsub(" ", "_", names(data.for.lda))
-names(data.for.lda) = gsub("-", ".", names(data.for.lda))
-
-# impute data
-data.for.lda = mice::complete(mice(data.for.lda, m=5, seed=25))
-
-data.fl = data.for.lda %>%
-  mutate(factor = case_when(
-    GRAIN == 'AGE 10 SHOCK' ~ "y-shk",
-    GRAIN == 'AGE 11 SHOCK' ~ "o-shk",
-    GRAIN %in% c('AGE 10 CONTEXT', 'AGE 11 CONTEXT') ~ "else"
-  ))
-
-# data.fl = data.for.lda %>%
-#   mutate(factor = GRAIN)
-
-
-LDAModel <- LinearDA(Data = data.fl, classCol = 17, 
-                     selectedCols = c(2:15,17), cvType="holdout",
-                     cvFraction = 0.75)
-
-# for 3
-PermutationResult <- ClassPerm(Data = data.fl, classCol = 17, 
-                               selectedCols = c(2:15,17), nSims = 100, cvType = "holdout",
-                               cvFraction = 0.80)
+  
+  return(result)
+}
 
 
 ```
 
-## For all 4
-```{r}
-data.for.lda = gfp %>%
-  ddply(.(System), transform, z = scale(weighted)) %>%
-  dcast(ID ~ System, value.var="z", fun.aggregate = mean, .drop=T) 
+# H2BGFP LDA
 
-data.for.lda = merge(data.for.lda, animal_details %>% 
-                       # filter(EXPT=='OLD') %>%
-                       mutate(GRAIN = paste(EXPT, VALENCE)) %>% 
-                       dplyr::select(ID, GRAIN), by="ID")
+## GFP For all 4
+```{r, fig.height=1.5, fig.width=2}
 
-# remove spaces? 
-names(data.for.lda) = gsub(" ", "_", names(data.for.lda))
-names(data.for.lda) = gsub("-", ".", names(data.for.lda))
-
-# impute data
-data.for.lda = mice::complete(mice(data.for.lda, m=5, seed=25))
-# 
-# data.fl = data.for.lda %>%
-#   mutate(factor = case_when(
-#     GRAIN == 'AGE 10 SHOCK' ~ "y-shk",
-#     GRAIN == 'AGE 11 SHOCK' ~ "o-shk",
-#     GRAIN %in% c('AGE 10 CONTEXT', 'AGE 11 CONTEXT') ~ "else"
-#   ))
-
-data.fl = data.for.lda %>%
-  mutate(factor = GRAIN)
-
-
-LDAModel <- LinearDA(Data = data.fl, classCol = 17, 
-                     selectedCols = c(2:15,17), cvType="holdout",
-                     cvFraction = 0.75)
+lda.gfp.4 = cast_lda(gfp) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(EXPT, VALENCE)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") 
+  impute_lda()
 
 # for  all 4
-PermutationResult <- ClassPerm(Data = data.fl, classCol = 17, 
-                               selectedCols = c(2:15,17), nSims = 100, cvType = "holdout",
+PermutationResult <- ClassPerm(Data = lda.gfp.4, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
                                cvFraction = 0.80)
 
 ```
 
-# shock vs context? no way
+## GFP - old SHK/CTX
 ```{r}
-data.for.lda = gfp %>%
-  ddply(.(System), transform, z = scale(weighted)) %>%
+lda.gfp.2old = cast_lda(gfp %>% filter(EXPT=='OLD')) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(VALENCE)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") %>%
+  impute_lda()
+
+# for  all 4
+PermutationResult <- ClassPerm(Data = lda.gfp.2old, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
+                               cvFraction = 0.80)
+```
+
+## GFP - young SHK/CTX
+```{r}
+lda.gfp.2young = cast_lda(gfp %>% filter(EXPT=='YOUNG')) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(VALENCE)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") %>%
+  impute_lda()
+
+# for  all 4
+PermutationResult <- ClassPerm(Data = lda.gfp.2young, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
+                               cvFraction = 0.80)
+```
+# Arc LDA
+
+
+## Arc by all 4
+```{r, fig.height=1.5, fig.width=2}
+
+lda.arc.4 = cast_lda(arc) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(EXPT, VALENCE)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") %>%
+  impute_lda()
+
+# for 4
+PermutationResult <- ClassPerm(Data = lda.arc.4, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
+                               # cvType = "holdout",
+                               cvFraction = 0.80)
+
+```
+
+## Arc - young SHK/CTX
+```{r}
+lda.arc.2young = cast_lda(arc %>% filter(EXPT=='YOUNG')) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(VALENCE)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") %>%
+  impute_lda()
+
+# for  all 4
+PermutationResult <- ClassPerm(Data = lda.arc.2young, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
+                               cvFraction = 0.80)
+```
+
+## Arc - old SHK/CTX
+```{r}
+lda.arc.2old = cast_lda(arc %>% filter(EXPT=='OLD')) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(VALENCE)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") %>%
+  impute_lda()
+
+# for  all 4
+PermutationResult <- ClassPerm(Data = lda.arc.2old, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
+                               cvFraction = 0.80)
+```
+
+
+# NORM OL by all 4
+```{r}
+
+data.for.lda = nol %>%
+  ddply(.(ID), transform, z = scale(weighted)) %>%
   dcast(ID ~ System, value.var="z", fun.aggregate = mean, .drop=T) 
 
 data.for.lda = merge(data.for.lda, animal_details %>% 
-                       # filter(EXPT=='OLD') %>%
-                       mutate(GRAIN = paste(EXPT)) %>% 
+                       mutate(GRAIN = paste(EXPT, VALENCE)) %>% 
                        dplyr::select(ID, GRAIN), by="ID")
 
 # remove spaces? 
@@ -107,24 +152,11 @@ names(data.for.lda) = gsub("-", ".", names(data.for.lda))
 # impute data
 data.for.lda = mice::complete(mice(data.for.lda, m=5, seed=25))
 
-# data.fl = data.for.lda %>%
-#   mutate(factor = case_when(
-#     GRAIN == 'AGE 10 SHOCK' ~ "y-shk",
-#     GRAIN == 'AGE 11 SHOCK' ~ "o-shk",
-#     GRAIN %in% c('AGE 10 CONTEXT', 'AGE 11 CONTEXT') ~ "else"
-#   ))
-
-data.fl = data.for.lda %>%
-  mutate(factor = GRAIN)
-
-
-# for 2
-PermutationResult <- ClassPerm(Data = data.fl, classCol = 17, 
-                               selectedCols = c(2:17), nSims = 100, cvType = "holdout",
+# for 4
+PermutationResult <- ClassPerm(Data = data.for.lda, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
+                               # cvType = "holdout",
                                cvFraction = 0.80)
 
 ```
-
-
-
-
