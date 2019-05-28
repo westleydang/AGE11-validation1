@@ -1,0 +1,147 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is a new notebook to do the NormOL analysis for the manuscript.
+
+Make sure to LoadLibs and get the data from the Post-Matlab Notebook!
+- knew.molten3
+- sys.weighted
+- total.weighted
+
+
+# Get the NormOL data
+```{r, fig.width=2.1, fig.height=1.5}
+
+sys.weighted %>%  aged() %>%
+  filter(CHANNEL=='NormOL') %>%
+  # filter(System %in% c('PFC')) %>%
+  mutate(CONTEXT == factor(CONTEXT, levels=c("AB", "AA"))) %>%
+  ggplot() + aes(CONTEXT, weighted, fill=CONTEXT) + 
+  stat_summary(fun.y="mean", geom="bar", position=position_dodge(1)) +
+  stat_summary(fun.data="mean_se", geom="errorbar", position=position_dodge(1), aes(width=0.3)) +
+  facet_wrap(VALENCE~EXPT, ncol=4) +theme_minimal() + remove_grids() +
+  labs(y="NormOL (cells/mm^2)",
+       x=element_blank(), title="Total brain") +
+  theme(axis.line=element_line(), legend.position = "none") +
+  scale_y_continuous(expand = c(0, 0)) +
+  coord_cartesian(ylim=c(0,0.02))
+
+
+# sys.weighted %>%  aged() %>%
+#   filter(CHANNEL=='NormOL' & VALENCE=='CONTEXT') %>%
+#   # filter(System %in% c('PFC')) %>%
+#   mutate(CONTEXT == factor(CONTEXT, levels=c("AB", "AA"))) %>%
+#   ggplot() + aes(CONTEXT, weighted, fill=CONTEXT) + 
+#   stat_summary(fun.y="mean", geom="bar", position=position_dodge(1)) +
+#   stat_summary(fun.data="mean_se", geom="errorbar", position=position_dodge(1), aes(width=0.3)) +
+#   facet_wrap(~EXPT, ncol=4) +theme_minimal() + remove_grids() +
+#   labs(y="NormOL (cells/mm^2)",
+#        x=element_blank(), title="Total brain, context") +
+#   theme(axis.line=element_line()) +
+#   scale_y_continuous(expand = c(0, 0))
+```
+
+# Stats, Total brain
+```{r}
+# AGED ANIMALS
+aged.shock.nol.aa = total.weighted %>% aged() %>%
+  filter(EXPT == 'AGED' & VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='NormOL' & CONTEXT=='AA')
+
+aged.shock.nol.ab = total.weighted %>% aged() %>%
+  filter(EXPT == 'AGED' & VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='NormOL' & CONTEXT=='AB')
+
+t.test(aged.shock.nol.aa$weighted, aged.shock.nol.ab$weighted)
+
+# YOUNG ANIMALS
+young.shock.nol.aa = total.weighted %>% aged() %>%
+  filter(EXPT == 'YOUNG' & VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='NormOL' & CONTEXT=='AA')
+
+young.shock.nol.ab = total.weighted %>% aged() %>%
+  filter(EXPT == 'YOUNG' & VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='NormOL' & CONTEXT=='AB')
+
+t.test(young.shock.nol.aa$weighted, young.shock.nol.ab$weighted)
+
+#====================================
+
+shock.nol = total.weighted %>% aged() %>%
+  filter(VALENCE == 'SHOCK') %>%
+  filter(CHANNEL=='NormOL')
+
+wilcox.test(formula = weighted ~ CONTEXT, data=shock.nol %>% filter(EXPT=='AGED'))
+wilcox.test(formula = weighted ~ CONTEXT, data=shock.nol %>% filter(EXPT=='YOUNG'))
+
+
+```
+
+
+
+```{r, fig.width=1.5, fig.height=1.5}
+# Print graph of the PFC only the AA vs AB for Shock
+sys.weighted %>%  aged() %>%
+  filter(CHANNEL=='NormOL' & VALENCE=='SHOCK') %>%
+  filter(System %in% c('PFC')) %>%
+  mutate(CONTEXT == factor(CONTEXT, levels=c("AB", "AA"))) %>%
+  ggplot() + aes(CONTEXT, weighted, fill=CONTEXT) + 
+  stat_summary(fun.y="mean", geom="bar", position=position_dodge(1)) +
+  stat_summary(fun.data="mean_se", geom="errorbar", position=position_dodge(1), aes(width=0.3)) +
+  facet_wrap(~EXPT, ncol=4) +theme_minimal() + remove_grids() +
+  labs(y="NormOL (cells/mm^2)",
+       x=element_blank(), title="PFC") +
+  theme(legend.position="none", axis.line=element_line()) +
+  scale_y_continuous(expand = c(0, 0))
+  
+
+sys.weighted %>%  aged() %>%
+  filter(CHANNEL=='NormOL' & VALENCE=='SHOCK') %>%
+  filter(System %in% c('SUBIC-HPC')) %>%
+  mutate(CONTEXT == factor(CONTEXT, levels=c("AB", "AA"))) %>%
+  ggplot() + aes(CONTEXT, weighted, fill=CONTEXT) + 
+  stat_summary(fun.y="mean", geom="bar", position=position_dodge(1)) +
+  stat_summary(fun.data="mean_se", geom="errorbar", position=position_dodge(1), aes(width=0.3)) +
+  facet_wrap(~EXPT, ncol=4) +theme_minimal() + remove_grids() +
+  labs(y="NormOL (cells/mm^2)",
+       x=element_blank(), title="SUBIC-HPC") +
+  theme(legend.position="none", axis.line=element_line()) +
+  scale_y_continuous(expand = c(0, 0))
+  
+sys.weighted %>% aged() %>%
+  filter(CHANNEL=='NormOL' & VALENCE=='SHOCK') %>%
+  filter(System %in% c('CORTICO-AMY')) %>%
+  mutate(CONTEXT == factor(CONTEXT, levels=c("AB", "AA"))) %>%
+  ggplot() + aes(CONTEXT, weighted, fill=CONTEXT) + 
+  stat_summary(fun.y="mean", geom="bar", position=position_dodge(1)) +
+  stat_summary(fun.data="mean_se", geom="errorbar", position=position_dodge(1), aes(width=0.3)) +
+  facet_wrap(~EXPT, ncol=4) +theme_minimal() + remove_grids() +
+  labs(y="NormOL (cells/mm^2)",
+       x=element_blank(), title="CORTICO-AMY") +
+  theme(legend.position="none", axis.line=element_line()) +
+  scale_y_continuous(expand = c(0, 0))
+```
+
+# Stats for PFC
+```{r}
+
+pfc.shock.nol = sys.weighted %>% aged() %>%
+  filter(CHANNEL=='NormOL' & VALENCE=='SHOCK') %>%
+  filter(System=='PFC') 
+wilcox.test(formula = weighted ~ CONTEXT, data=pfc.shock.nol %>% filter(EXPT=='YOUNG'))
+wilcox.test(formula = weighted ~ CONTEXT, data=pfc.shock.nol %>% filter(EXPT=='AGED'))
+
+```
+
+
+# Stats for HPC
+```{r}
+hpc.shock.nol = sys.weighted %>% aged() %>%
+  filter(CHANNEL=='NormOL' & VALENCE=='SHOCK') %>%
+  filter(System=='SUBIC-HPC') 
+wilcox.test(formula = weighted ~ CONTEXT, data=hpc.shock.nol %>% filter(EXPT=='YOUNG'))
+wilcox.test(formula = weighted ~ CONTEXT, data=hpc.shock.nol %>% filter(EXPT=='AGED'))
+
+```
