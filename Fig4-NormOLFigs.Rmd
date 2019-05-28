@@ -145,3 +145,36 @@ wilcox.test(formula = weighted ~ CONTEXT, data=hpc.shock.nol %>% filter(EXPT=='Y
 wilcox.test(formula = weighted ~ CONTEXT, data=hpc.shock.nol %>% filter(EXPT=='AGED'))
 
 ```
+
+
+# EXPT:VALENCE effects
+No context dependent effects. OK but what I did find here is that there are age-valence effects that mirror the total brain. These are found from the ANOVA. 
+
+```{r}
+
+sys.nol = sys.weighted %>% aged() %>% filter(CHANNEL == 'NormOL')
+
+wilcox.test(formula = weighted ~ VALENCE, data = sys.nol %>% filter(System == 'SUBIC-HPC' & EXPT == 'YOUNG'))
+wilcox.test(formula = weighted ~ VALENCE, data = sys.nol %>% filter(System == 'SUBIC-HPC' & EXPT == 'AGED'))
+
+wilcox.test(formula = weighted ~ VALENCE, data = sys.nol %>% filter(System == 'TEMP ASSOC CTX' & EXPT == 'YOUNG'))
+wilcox.test(formula = weighted ~ VALENCE, data = sys.nol %>% filter(System == 'TEMP ASSOC CTX' & EXPT == 'AGED'))
+
+```
+
+```{r}
+sys.nol %>% filter(System == 'TEMP ASSOC CTX') %>%
+  ggplot() + aes(VALENCE, weighted, fill=VALENCE) +
+  stat_summary(fun.y="mean", geom="bar") +
+  stat_summary(fun.data = "mean_se", geom="errorbar") + 
+  facet_wrap(~EXPT) + ggtitle("TEMP ASSOC CTX")
+
+sys.nol %>% filter(System == 'SUBIC-HPC') %>%
+  ggplot() + aes(VALENCE, weighted, fill=VALENCE) +
+  stat_summary(fun.y="mean", geom="bar") +
+  stat_summary(fun.data = "mean_se", geom="errorbar") + 
+  facet_wrap(~EXPT) + ggtitle("SUBIC-HPC")
+  
+```
+
+
