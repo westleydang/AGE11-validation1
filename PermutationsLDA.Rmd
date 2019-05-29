@@ -5,9 +5,10 @@ output: html_notebook
 
 # Permuting GFP Permutations
 
-## Set up
+## Set up functions: 
+impute_lda, cast_lda
 ``` {r}
-
+source(LoadLibs.R) 
 library(PredPsych)
 library(MASS)
 
@@ -42,13 +43,15 @@ cast_lda = function(x) {
 lda.gfp.4 = cast_lda(gfp) %>%
   merge(., animal_details %>% 
   mutate(GRAIN = paste(EXPT, VALENCE)) %>% 
-  dplyr::select(ID, GRAIN), by="ID") 
+  dplyr::select(ID, GRAIN), by="ID") %>%
   impute_lda()
 
 # for  all 4
 PermutationResult <- ClassPerm(Data = lda.gfp.4, classCol = 17, 
                                selectedCols = c(2:17), nSims = 100, 
                                classifierFun = LinearDA,
+                               ntrainTestFolds = 5,
+                               nTrainFolds = 5,
                                cvFraction = 0.80)
 
 ```
@@ -82,10 +85,10 @@ PermutationResult <- ClassPerm(Data = lda.gfp.2young, classCol = 17,
                                classifierFun = LinearDA,
                                cvFraction = 0.80)
 ```
+
 # Arc LDA
 
-
-## Arc by all 4
+## Arc by all 4, 72%, p=0.02
 ```{r, fig.height=1.5, fig.width=2}
 
 lda.arc.4 = cast_lda(arc) %>%
@@ -99,11 +102,14 @@ PermutationResult <- ClassPerm(Data = lda.arc.4, classCol = 17,
                                selectedCols = c(2:17), nSims = 100, 
                                classifierFun = LinearDA,
                                # cvType = "holdout",
+                               
+                               ntrainTestFolds = 10,
+                               nTrainFolds = 10,
                                cvFraction = 0.80)
 
 ```
 
-## Arc - young SHK/CTX
+## Arc - young SHK/CTX, 100%, 0.02
 ```{r}
 lda.arc.2young = cast_lda(arc %>% filter(EXPT=='YOUNG')) %>%
   merge(., animal_details %>% 
@@ -118,7 +124,7 @@ PermutationResult <- ClassPerm(Data = lda.arc.2young, classCol = 17,
                                cvFraction = 0.80)
 ```
 
-## Arc - old SHK/CTX
+## Arc - old SHK/CTX, 20%, p=0.87
 ```{r}
 lda.arc.2old = cast_lda(arc %>% filter(EXPT=='OLD')) %>%
   merge(., animal_details %>% 
@@ -132,31 +138,90 @@ PermutationResult <- ClassPerm(Data = lda.arc.2old, classCol = 17,
                                classifierFun = LinearDA,
                                cvFraction = 0.80)
 ```
-
-
-# NORM OL by all 4
+## Arc - EXPT (shock), 60%, p=0.02
 ```{r}
+lda.arc.2shock = cast_lda(arc %>% filter(VALENCE=='SHOCK')) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(EXPT)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") %>%
+  impute_lda()
 
-data.for.lda = nol %>%
-  ddply(.(ID), transform, z = scale(weighted)) %>%
-  dcast(ID ~ System, value.var="z", fun.aggregate = mean, .drop=T) 
+# for  all 4
+PermutationResult <- ClassPerm(Data = lda.arc.2shock, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
+                               cvFraction = 0.80)
+```
 
-data.for.lda = merge(data.for.lda, animal_details %>% 
-                       mutate(GRAIN = paste(EXPT, VALENCE)) %>% 
-                       dplyr::select(ID, GRAIN), by="ID")
+## Arc - EXPT (context), 85%, 0.05
+```{r}
+lda.arc.2ctx = cast_lda(arc %>% filter(VALENCE=='CONTEXT')) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(EXPT)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") %>%
+  impute_lda()
 
-# remove spaces? 
-names(data.for.lda) = gsub(" ", "_", names(data.for.lda))
-names(data.for.lda) = gsub("-", ".", names(data.for.lda))
+# for  all 4 
+PermutationResult <- ClassPerm(Data = lda.arc.2ctx, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
+                               cvFraction = 0.80)
+```
 
-# impute data
-data.for.lda = mice::complete(mice(data.for.lda, m=5, seed=25))
+
+# NORMOL LDA
+
+## NORMOL by all 4
+```{r, fig.height=1.5, fig.width=2}
+
+lda.nol.4 = cast_lda(nol) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(EXPT, VALENCE)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") %>%
+  impute_lda()
 
 # for 4
-PermutationResult <- ClassPerm(Data = data.for.lda, classCol = 17, 
+PermutationResult <- ClassPerm(Data = lda.nol.4, classCol = 17, 
                                selectedCols = c(2:17), nSims = 100, 
                                classifierFun = LinearDA,
                                # cvType = "holdout",
+                               ntrainTestFolds = 5,
+                               nTrainFolds = 5,
                                cvFraction = 0.80)
 
 ```
+
+## NORMOL - young SHK/CTX
+```{r}
+lda.nol.2young = cast_lda(nol %>% filter(EXPT=='YOUNG')) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(VALENCE)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") %>%
+  impute_lda()
+
+# for  all 4
+PermutationResult <- ClassPerm(Data = lda.nol.2young, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
+                               cvFraction = 0.80)
+```
+
+## NORMOL - old SHK/CTX
+```{r}
+lda.nol.2old = cast_lda(nol %>% filter(EXPT=='OLD')) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(VALENCE)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") %>%
+  impute_lda()
+
+# for  all 4
+PermutationResult <- ClassPerm(Data = lda.nol.2old, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
+                               cvFraction = 0.80)
+```
+
+
+
+
+
