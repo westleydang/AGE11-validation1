@@ -92,8 +92,7 @@ PermutationResult <- ClassPerm(Data = lda.gfp.2young, classCol = 17,
 ```{r, fig.height=1.5, fig.width=2}
 
 lda.arc.4 = cast_lda(arc) %>%
-  merge(., animal_details %>% 
-  mutate(GRAIN = paste(EXPT, VALENCE)) %>% 
+  merge(., animal_details %>% mutate(GRAIN = paste(EXPT, VALENCE)) %>% 
   dplyr::select(ID, GRAIN), by="ID") %>%
   impute_lda()
 
@@ -223,5 +222,33 @@ PermutationResult <- ClassPerm(Data = lda.nol.2old, classCol = 17,
 
 
 
+## NormOL - EXPT (context)
+```{r}
+lda.nol.2ctx = cast_lda(nol %>% filter(VALENCE=='CONTEXT')) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(EXPT)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") %>%
+  impute_lda()
+
+# for  all 4 
+PermutationResult <- ClassPerm(Data = lda.nol.2ctx, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
+                               cvFraction = 0.80)
+```
+## NormOL - EXPT (context), 85%, 0.05
+```{r}
+lda.nol.2shk = cast_lda(nol %>% filter(VALENCE=='SHOCK')) %>%
+  merge(., animal_details %>% 
+  mutate(GRAIN = paste(EXPT)) %>% 
+  dplyr::select(ID, GRAIN), by="ID") %>%
+  impute_lda()
+
+# for  all 4 
+PermutationResult <- ClassPerm(Data = lda.nol.2shk, classCol = 17, 
+                               selectedCols = c(2:17), nSims = 100, 
+                               classifierFun = LinearDA,
+                               cvFraction = 0.80)
+```
 
 
