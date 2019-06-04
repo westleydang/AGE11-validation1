@@ -177,4 +177,70 @@ sys.nol %>% filter(System == 'SUBIC-HPC') %>%
   
 ```
 
+# Separating out AA and AB groups
+
+The goal here is to separate out just AA and AB groups into different facets. The idea is that perhaps the AB groups confound the normalized overlap in the shock/context. 
+
+So we want to ask: is this effect the same whether we collapse the contexts together, or are they different between AA/AB
+
+The answer here is that they kind of look the same: 
+
+
+```{r}
+
+# use total.weighted
+
+total.weighted %>% aged() %>% filter(CHANNEL == 'NormOL') %>%
+  ggplot() + aes(VALENCE, weighted, fill=VALENCE) +
+  stat_summary(fun.y = "mean", geom = "bar") +
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) +
+  facet_wrap(CONTEXT~EXPT, ncol=4) + theme_minimal()
+
+```
+
+## stats: is AB YOUNG shock > context significant?
+Yes:
+
+```{r}
+ab.young.nol = total.weighted %>% aged() %>% 
+  filter(CHANNEL == "NormOL" & EXPT == 'YOUNG' & CONTEXT == 'AB')
+
+# DO A NON-PARAMETRIC TEST
+wilcox.test(formula = weighted ~ VALENCE, data = ab.young.nol)
+
+# TRY A T-TEST
+t.test(ab.young.nol %>% filter(VALENCE=='SHOCK') %>% pull(weighted),
+       ab.young.nol %>% filter(VALENCE=='CONTEXT') %>% pull(weighted))
+```
+
+
+## STATS: what about AA YOUNG, shock > context?
+
+```{r}
+aa.young.nol = total.weighted %>% aged() %>% 
+  filter(CHANNEL == "NormOL" & EXPT == 'YOUNG' & CONTEXT == 'AA')
+
+# DO A NON-PARAMETRIC TEST
+wilcox.test(formula = weighted ~ VALENCE, data = aa.young.nol)
+
+# TRY A T-TEST
+t.test(aa.young.nol %>% filter(VALENCE=='SHOCK') %>% pull(weighted),
+       aa.young.nol %>% filter(VALENCE=='CONTEXT') %>% pull(weighted))
+```
+Nope, not significant. 
+
+
+## But what if we faceted out the age cohorts?
+
+```{r}
+
+# use total.weighted
+
+total.weighted %>% aged() %>% filter(CHANNEL == 'NormOL') %>%
+  ggplot() + aes(CONTEXT, weighted, fill=CONTEXT) +
+  stat_summary(fun.y = "mean", geom = "bar") +
+  stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) +
+  facet_wrap(EXPT~VALENCE, ncol=4) + theme_minimal()
+
+```
 
