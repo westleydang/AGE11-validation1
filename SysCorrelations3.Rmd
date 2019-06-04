@@ -299,9 +299,7 @@ get_lda = function(df, dfname) {
   ddply(.(ID), transform, z = scale(weighted)) %>%
   dcast(ID ~ System, value.var="z", fun.aggregate = mean) 
 
-  data.for.lda = merge(data.for.lda, animal_details %>% 
-                         
-   mutate(EXPT = ifelse(EXPT == "AGE 10", "YOUNG", "OLD")) %>%
+  data.for.lda = merge(data.for.lda, animal_details %>% aged() %>%
    mutate(GRAIN = paste(EXPT, VALENCE)) %>% dplyr::select(ID, GRAIN), by="ID")
   
   # remove spaces? 
@@ -365,8 +363,8 @@ get_lda = function(df, dfname) {
   
   plda = predict(object = r, # predictions
                  newdata = data.for.lda)
-  plda$class
-  
+  print(plda$class)
+  predict.table = table(plda$class, data.for.lda$GRAIN)
   
   dataset = data.frame(GRAIN = data.for.lda[,"GRAIN"],
                        lda = plda$x) 
@@ -374,30 +372,25 @@ get_lda = function(df, dfname) {
   p1 <- ggplot(dataset) + geom_point(aes(lda.LD1, lda.LD2, colour = GRAIN, shape = GRAIN), size = 2.5) + 
     labs(x = paste("LD1 (", round(100*(prop[1])/sum(prop),2), "%)", sep=""),
          y = paste("LD2 (", round(100*(prop[2])/sum(prop),2), "%)", sep="")) +
-    
-    # ggtitle(paste(dfname, "LDA for each age and conditioning")) +
     theme_minimal() + 
     stat_ellipse(aes(x=lda.LD1, y=lda.LD2, fill = GRAIN), alpha = 0.2, geom = "polygon") +
-    theme(legend.position="right", legend.title=element_text(colour="white")) + 
-    scaling_text + scaling_arrows + ggtitle(paste("LDA for ", dfname))
+    theme(legend.position=c(0.1,0.1), legend.direction="vertical", 
+          legend.title=element_blank(), axis.line=element_line()) + remove_grids() +
+    guides(color=guide_legend(ncol=2), shape=guide_legend(ncol=2))
   
     p2 <- ggplot(dataset) + geom_point(aes(lda.LD1, lda.LD3, colour = GRAIN, shape = GRAIN), size = 2.5) + 
     labs(x = paste("LD1 (", round(100*(prop[1])/sum(prop),2), "%)", sep=""),
          y = paste("LD3 (", round(100*(prop[3])/sum(prop),2), "%)", sep="")) +
     theme_minimal() + 
     stat_ellipse(aes(x=lda.LD1, y=lda.LD3, fill = GRAIN), alpha = 0.2, geom = "polygon") +
-    theme(legend.position="right", legend.title=element_text(colour="white")) + 
-    scaling_text + scaling_arrows
+    theme(legend.position="right", legend.title=element_blank())  + remove_grids()
     
       p3 <- ggplot(dataset) + geom_point(aes(lda.LD3, lda.LD2, colour = GRAIN, shape = GRAIN), size = 2.5) + 
     labs(x = paste("LD3 (", round(100*(prop[3])/sum(prop),2), "%)", sep=""),
          y = paste("LD2 (", round(100*(prop[2])/sum(prop),2), "%)", sep="")) +
-    
-    # ggtitle(paste(dfname, "LDA for each age and conditioning")) +
     theme_minimal() + 
     stat_ellipse(aes(x=lda.LD3, y=lda.LD2, fill = GRAIN), alpha = 0.2, geom = "polygon") +
-    theme(legend.position="right", legend.title=element_text(colour="white")) + 
-    scaling_text + scaling_arrows
+    theme(legend.position="right", legend.title=element_blank()) + remove_grids()
   
   print(p1)
   print(p2)
@@ -407,11 +400,12 @@ get_lda = function(df, dfname) {
 
 
 
+
 ```
 
 
 # ARCIHC
-```{r}
+```{r, fig.height=2, fig.width=1.5}
 # SUBSET FOR ARC ONLY
 arc = sys.weighted %>% filter(CHANNEL=='ArcIHC')  
 
@@ -594,7 +588,7 @@ heatmap.2(as.matrix(gfp.hm[2:length(gfp.hm)]), trace="none", hclustfun = hclust,
 ```
 
 ## LDA
-```{r, fig.height=2, fig.width=3.5}
+```{r, fig.height=2, fig.width=1.5}
 
 get_lda(gfp, "H2BGFP")
 ```
@@ -708,7 +702,7 @@ compare_matrix_r(gfp.ys, gfp.os, "Young SHK", "Old SHK")
 ```
 
 # NormOL
-```{r}
+```{r, fig.height=2, fig.width=1.55}
 # SUBSET FOR ARC ONLY
 nol = sys.weighted %>% filter(CHANNEL=='NormOL')
 get_pca(nol, "NormOL")
