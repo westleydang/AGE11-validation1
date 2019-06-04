@@ -1,0 +1,204 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Here I try to do regional LDA and see what that looks like...
+
+
+
+```{r}
+source("LoadLibs.R")
+
+require(MASS)
+library(ade4)
+library(RColorBrewer)
+library(gplots)
+
+cluster.method = "hclust"
+use.method = "complete.obs"
+corr.type="pearson"
+
+
+```
+
+# Define LDA function for REGIONS not SYSTEMS
+```{r}
+# LDA DEFINE FUNCTION
+get_lda_regions = function(df, dfname) {
+  data.for.lda = df %>%
+  ddply(.(ID), transform, z = scale(weighted)) %>%
+  dcast(ID ~ SubROI_SubroiAGGR, value.var="z", fun.aggregate = mean) 
+
+  data.for.lda = merge(data.for.lda, animal_details %>% aged() %>%
+   mutate(GRAIN = paste(EXPT, VALENCE)) %>% dplyr::select(ID, GRAIN), by="ID")
+  
+  # remove spaces? 
+  names(data.for.lda) = gsub(" ", "_", names(data.for.lda))
+  names(data.for.lda) = gsub("-", ".", names(data.for.lda))
+  
+  # impute missing data
+  data.for.lda = mice::complete(mice(data.for.lda, m=5, seed=25))
+
+  # lda
+  r <- lda(formula = GRAIN ~ ., 
+           data = data.for.lda[,2:ncol(data.for.lda)], 
+           prior = c(1,1,1,1)/4)
+  
+  # get lda scalings/coefs
+  dl <- data.frame(varnames=rownames(coef(r)), coef(r)) 
+  dl$length <- with(dl, sqrt(LD1^2+LD2^2))
+  dl = dl %>% mutate(pct.LD1 = 100*abs(LD1)/sum(abs(LD1))) %>% arrange(pct.LD1)
+  print(dl)
+  
+  print(
+      ggplot(dl) + aes(reorder(varnames, as.numeric(pct.LD1)), as.numeric(pct.LD1)) + geom_bar(stat="identity") + rx +
+        coord_flip() + theme_light() + xlab("System") + ylab("Proportion of variance") + 
+        theme(text = element_text(size=20))
+  )
+
+  
+  scaling_text = geom_text(
+    data = dl,
+    aes(
+      x = LD1,
+      y = LD2,
+      label = varnames,
+      # linetype = NULL,
+      alpha = length
+      # position = "identity"
+    ),
+    size = 4,
+    vjust = .5,
+    hjust = 0,
+    color = "red"
+  )
+  
+  
+  scaling_arrows =  geom_segment(
+    data = dl,
+    aes(
+      x = 0,
+      y = 0,
+      xend = LD1,
+      yend = LD2,
+      # linetype = NULL,
+      alpha = length
+    ),
+    arrow = arrow(length = unit(0.1, "mm")),
+    color = "red"
+  ) 
+  
+  
+  prop = r$svd^2/sum(r$svd^2)
+  
+  plda = predict(object = r, # predictions
+                 newdata = data.for.lda)
+  print(plda$class)
+  predict.table = table(plda$class, data.for.lda$GRAIN)
+  
+  dataset = data.frame(GRAIN = data.for.lda[,"GRAIN"],
+                       lda = plda$x) 
+  
+  p1 <- ggplot(dataset) + geom_point(aes(lda.LD1, lda.LD2, colour = GRAIN, shape = GRAIN), size = 2.5) + 
+    labs(x = paste("LD1 (", round(100*(prop[1])/sum(prop),2), "%)", sep=""),
+         y = paste("LD2 (", round(100*(prop[2])/sum(prop),2), "%)", sep="")) +
+    theme_minimal() + 
+    stat_ellipse(aes(x=lda.LD1, y=lda.LD2, fill = GRAIN), alpha = 0.2, geom = "polygon") +
+    theme(legend.position="bottom", legend.direction="vertical", legend.title=element_blank()) + remove_grids() +
+    guides(color=guide_legend(ncol=2), shape=guide_legend(ncol=2))
+  
+    p2 <- ggplot(dataset) + geom_point(aes(lda.LD1, lda.LD3, colour = GRAIN, shape = GRAIN), size = 2.5) + 
+    labs(x = paste("LD1 (", round(100*(prop[1])/sum(prop),2), "%)", sep=""),
+         y = paste("LD3 (", round(100*(prop[3])/sum(prop),2), "%)", sep="")) +
+    theme_minimal() + 
+    stat_ellipse(aes(x=lda.LD1, y=lda.LD3, fill = GRAIN), alpha = 0.2, geom = "polygon") +
+    theme(legend.position="right", legend.title=element_blank())  + remove_grids()
+    
+      p3 <- ggplot(dataset) + geom_point(aes(lda.LD3, lda.LD2, colour = GRAIN, shape = GRAIN), size = 2.5) + 
+    labs(x = paste("LD3 (", round(100*(prop[3])/sum(prop),2), "%)", sep=""),
+         y = paste("LD2 (", round(100*(prop[2])/sum(prop),2), "%)", sep="")) +
+    theme_minimal() + 
+      stat_ellipse(aes(x=lda.LD3, y=lda.LD2, fill = GRAIN), alpha = 0.2, geom = "polygon") +
+    theme(legend.position="right", legend.title=element_blank()) + remove_grids()
+  
+  print(p1)
+  print(p2)
+  print(p3)
+  
+}
+
+
+
+
+```
+
+# Arc
+```{r}
+
+# do the ething
+
+# get the arc for regions
+
+
+
+arc_reg = sys.weighted = knew.molten3 %>%
+  group_by(ID, EXPT, GROUP, VALENCE, CONTEXT, CHANNEL, variable, SubROI_SubroiAGGR) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2))  %>%
+  filter(CHANNEL == 'ArcIHC')
+
+# get the lda
+get_lda_regions(arc_reg)
+
+```
+#GFP get lda regions
+```{r}
+
+# do the ething
+
+# get the arc for regions
+
+gfp_reg = sys.weighted = knew.molten3 %>%
+  group_by(ID, EXPT, GROUP, VALENCE, CONTEXT, CHANNEL, variable, SubROI_SubroiAGGR) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2))  %>%
+  filter(CHANNEL == 'H2BGFP')
+
+# get the lda
+get_lda_regions(gfp_reg)
+
+```
+
+
+
+
+# Okay now let's do the permutations
+
+```{r}
+library(PredPsych)
+
+# Set up the function
+
+data.for.lda.reg = arc_reg %>%
+  ddply(.(SubROI_SubroiAGGR), transform, z = scale(weighted)) %>%
+  dcast(ID ~ SubROI_SubroiAGGR, value.var="z", fun.aggregate = mean, .drop=T) 
+
+data.for.lda.reg = merge(data.for.lda.reg, animal_details %>% 
+                       # filter(EXPT=='OLD') %>%
+                       mutate(GRAIN = paste(EXPT, VALENCE)) %>% 
+                       dplyr::select(ID, GRAIN), by="ID")
+
+# remove spaces? 
+names(data.for.lda.reg) = gsub(" ", "_", names(data.for.lda.reg))
+names(data.for.lda.reg) = gsub("-", ".", names(data.for.lda.reg))
+
+# impute data
+data.for.lda.reg = mice::complete(mice(data.for.lda.reg, m=5, seed=25))
+
+# for  all 4
+PermutationResult <- ClassPerm(Data = data.for.lda.reg, classCol = ncol(data.for.lda.reg), 
+                               selectedCols = c(2:ncol(data.for.lda.reg)), nSims = 100, 
+                               classifierFun = LinearDA,
+                               # cvType = "holdout",
+                               cvFraction = 0.80)
+```
+

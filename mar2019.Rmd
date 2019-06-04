@@ -1,0 +1,106 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+THIS IS ADDING BACK THE ANIMALS THAT I DIDN'T HAVE BEFORE. JUST DOING IT SO I CAN GET THE T-TESTS MADE FOR THE SYSTEMS NORM OVERLAP ANALYIS T.TESTS
+
+
+```{r, echo=F, message=F}
+
+
+
+source("LoadProcessZ1New-dec18.R") #outputs knew.molten
+
+## !!! LOAD JAN 2019 FIRST TO LOAD KNEW.MOLTEN2
+
+
+# from now on I'm interested in densities and total
+knew.molten4 = knew.molten2 %>%
+  filter(UNITS == "density") %>%
+  filter(BRIGHTNESS == 'total') %>%
+  filter(!CHANNEL=='OL') %>% # don't need this because we have NormOL
+  mutate(EXPT = as.factor(EXPT))
+
+# knew.molten3 = knew.molten3 %>% filter(!ID %in% qc.roi)
+
+# list the systems and their regions
+list.brain.regions =  knew.molten4 %>% group_by(System) %>% dplyr::select(System, SubROI_SubroiAGGR) %>% unique()
+arrange(list.brain.regions, System)
+
+```
+
+
+# NOW GET SYSTEMS WEIGHTED AND DO THE TESTS
+```{r}
+
+
+# system brain weighted means
+sys.weighted4 = knew.molten4 %>%
+  group_by(ID, EXPT, GROUP, VALENCE, CONTEXT, CHANNEL, variable, System) %>%
+  summarize(weighted = weighted.mean(value, Pop_roiAreaMM2)) 
+
+# set up tests
+nolsys = sys.weighted4 %>% filter(CHANNEL=='NormOL')
+arcsys = sys.weighted4 %>% filter(CHANNEL=='ArcIHC')
+gfpsys = sys.weighted4 %>% filter(CHANNEL=='H2BGFP')
+
+old = function(x) { x %>% filter(EXPT=='OLD') }
+young = function(x) { x %>% filter(EXPT=='YOUNG') }
+shk = function(x) { x %>% filter(VALENCE=='SHOCK') }
+ctx = function(x) { x %>% filter(VALENCE == 'CONTEXT') }
+aa = function(x) { x %>% filter(CONTEXT == 'AA') }
+ab = function(x) { x %>% filter(CONTEXT == 'AB') }
+sys = function(x,y) { x %>% filter(System == y) }
+nol.interesting.systems = c("PFC", "SUBIC-HPC", "CORTICO-AMY", "TEMP ASSOC CTX")
+
+test.areas = function(x, where) {
+      aa.data = x %>% aa() %>% pull(weighted)
+      ab.data = x %>% ab() %>% pull(weighted)
+      print(t.test(aa.data, ab.data))  
+}
+
+## YOUNG SHK ==> AA VS AB
+nolsys %>% young() %>% shk() %>% sys("PFC")
+
+nolsys %>% young() %>% shk() %>% test.areas(., nol.interesting.systems)
+
+## YOUNG ==> AA VS AB
+for (system in nol.interesting.systems) {
+  x = nolsys %>% shk() %>% young() %>% filter(System==system)
+  print(system)
+  print(t.test(x %>% aa() %>% pull(weighted), x %>% ab() %>% pull(weighted)))
+}
+for (system in nol.interesting.systems) {
+  x = nolsys %>% ctx() %>% young() %>% filter(System==system)
+  print(system)
+  print(t.test(x %>% aa() %>% pull(weighted), x %>% ab() %>% pull(weighted)))
+}
+
+## OLD ==> AA VS AB
+for (system in nol.interesting.systems) {
+  x = nolsys %>% shk() %>% old() %>% filter(System==system)
+  print(system)
+  print(t.test(x %>% aa() %>% pull(weighted), x %>% ab() %>% pull(weighted)))
+}
+for (system in nol.interesting.systems) {
+  x = nolsys %>% ctx() %>% old() %>% filter(System==system)
+  print(system)
+  print(t.test(x %>% aa() %>% pull(weighted), x %>% ab() %>% pull(weighted)))
+}
+
+```
+
+```{r}
+
+nolsys %>% young() %>%
+  group_by(System) %>%
+  do(tidy(aov(data=., weighted ~ VALENCE * CONTEXT))) %>%
+  filter(term=="VALENCE:CONTEXT")
+
+nolsys %>% young() %>% shk() %>%
+  group_by(System) %>%
+  test.areas()
+
+```
+
