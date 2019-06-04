@@ -33,3 +33,6 @@ a %>%
   ggplot() + aes(GROUP, nol, color=EXPT) + stat_summary(fun.y = "mean", geom="point") +
   stat_summary(fun.data="mean_se", geom="errorbar") 
 
+a %>% 
+  ggplot() + aes(GROUP, fc1, color=EXPT) + stat_summary(fun.y = "mean", geom="point") +
+  stat_summary(fun.data="mean_se", geom="errorbar") 
