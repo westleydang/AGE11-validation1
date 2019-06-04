@@ -66,42 +66,44 @@ rev0 = rev
 # Do stuff
 ```{r}
 
+ex = ex %>% mutate(error = ifelse(Height > Width, "ERROR", "Safe"))
 
-raw = raw %>% mutate(f_root = str_extract(as.character(File.Name.), root_pat),
-                     is_excluded = ifelse(f_root %in% ex.errors, "yes", "no"))
-raw$is_excluded = as.factor(raw$is_excluded)
+ex = ex %>% mutate(fileroot = str_extract(as.character(Name), root_pat))
+ex.errors = ex %>% filter(error == 'ERROR') %>% pull(fileroot)
+
+
 
 # summary(raw$is_excluded)
 
-
-rev = rev %>% 
+# DO REV STUFF
+rev = rev0 %>% 
   dcast(Mouse.ID. + Bregma. + File.Name. ~ Sub.ROI., value.var="Ch1.Mean.", fun.aggregate=mean) %>%
   dplyr::select(1:3) 
 rev$File.Name. = as.character(rev$File.Name.)
 rev1 = rev #chkpt
 rev = rev %>%
-  mutate(rev_root = str_extract(File.Name., root_pat)) %>%
-  mutate(img = str_split(rev_root, "_", simplify=T)[1]) %>%
-  mutate(img_grain = paste(Mouse.ID., img))
+  mutate(rev_root = str_extract(File.Name., root_pat)) 
+rev$img = unlist(lapply(rev$File.Name., function(x) str_split(x, "_", simplify=T)[1]))
+rev$img_grain = paste(rev$Mouse.ID., rev$img)
 
+# DO RAW STUFF
+
+raw$f_root = unlist(lapply(raw$File.Name., function(x) str_extract(x, root_pat)))
+raw$is_excluded = ifelse(raw$f_root %in% ex.errors, "yes", "no")
+
+raw$is_excluded = as.factor(raw$is_excluded)
 
 raw$Mouse.ID. = as.character(raw$Mouse.ID.)
 raw$File.Name. = as.character(raw$File.Name.)
 raw$Bregma. = as.character(raw$Bregma.)
+raw$img = unlist(lapply(raw$File.Name., function(x) str_split(x, "_", simplify=T)[1]))
 raw = raw %>%
-  mutate(img = str_split(File.Name., "_", simplify=T)[1],
-         img_grain = paste(Mouse.ID., img))
+  mutate(img_grain = paste(Mouse.ID., img))
 
+# interface raw with rev
 raw = raw %>% 
   mutate(was_revised = ifelse(img_grain %in% rev$img_grain, "yes", "no"))
 raw$was_revised = as.factor(raw$was_revised)
-
-
-raw = raw %>%
-  dcast(Mouse.ID. + Bregma. + File.Name. + is_excluded + was_revised ~ Sub.ROI., value.var="Ch1.Mean.", fun.aggregate=length) %>%
-  dplyr::select(1:8)
-raw = raw[-1,]
-
 
 # raw1 = raw # chkpt
 
@@ -112,9 +114,17 @@ raw = raw %>% mutate(lost = case_when(
 raw$lost = as.factor(raw$lost)
 
 # ok now get stats
+print("Excluded:")
 summary(raw$is_excluded)
+print("Revised:")
 summary(raw$was_revised)
+print("Lost:")
 summary(raw$lost)
+
+# AH OKAY THE PROBLEM HERE IS THAT SOMEHOW THE ROOT NAMES OF THE REVISED FILES
+# WERE CHANGED AND I CAN'T FUCKING GRAB THEM FOR SOME REASON. SO NOW IT SAYS
+# THERE ARE NO REVISED FILES
+# SO WHERE DO I GET REVISED FILES 
 
 ```
 
