@@ -9,7 +9,7 @@ source("LoadProcessRAW-Dec2018.R")
 z1.count = raw.z1 %>%
   mutate(GRAIN = paste(EXPT, VALENCE, CONTEXT, sep = "-")) %>%
   group_by(Mouse.ID., GRAIN, File.Name.) %>%
-  summarize(n()) %>%
+  dplyr::summarize(n()) %>%
   group_by(Mouse.ID., GRAIN) %>%
   summarize(n = n())
 

@@ -1,8 +1,6 @@
 
 
-data.for.lda = arc %>%
-  ddply(.(System), transform, z = scale(weighted)) %>%
-  dcast(ID ~ System, value.var="z", fun.aggregate = mean, .drop=T) 
+  cast(ID ~ System, value.var="z", fun.aggregate = mean, .drop=T) 
 
 
 data.for.lda = merge(data.for.lda, animal_details %>% 
@@ -16,6 +14,8 @@ names(data.for.lda) = gsub("-", ".", names(data.for.lda))
 
 # impute data
 data.for.lda = mice::complete(mice(data.for.lda, m=5, seed=25))
+
+
 
 # try this new imputed
 init = mice(data.for.lda, maxit=0) 
