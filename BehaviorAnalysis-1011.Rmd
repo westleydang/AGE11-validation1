@@ -52,7 +52,7 @@ total.weighted %>% aged()
 
 # remove grid lines
 remove_grids = function(x) {
-  theme(panel.grid.minor = element_blank())
+  theme(panel.grid = element_blank())
 }
 
 remove_legend = function(x) {
@@ -170,21 +170,15 @@ shock_only %>%
   do(tidy(shapiro.test(.$Pct.Total.Time.Freezing)))
 
 # Stats for average after each shock, by age 2-way RM ANOVA
-shock_only %>%
-  # group_by(Component.Name) %>%
-  do(tidy(aov(Pct.Component.Time.Freezing ~ EXPT*Component.Name + Error(ID/(Component.Name)), data = .))) %>%
-  put_sig_scores()
-
-summary(aov(Pct.Component.Time.Freezing ~ EXPT*Component.Name + Error(ID/(Component.Name)), data = shock_only))
-
-summary(aov(Pct.Component.Time.Freezing ~ Component.Name + Error(ID/(Component.Name)), data = shock_only))
-
-summary(lm(Pct.Component.Time.Freezing ~EXPT * Component.Name , data = shock_only %>% filter(!Component.Name=='0')))
+learning.aov = with(shock_only, aov(Pct.Component.Time.Freezing ~ EXPT * Component.Name + 
+                                      Error(ID / (EXPT * Component.Name))))
+learning.aov
+summary(learning.aov)
 
 
 ```
 ### figure
-```{r, fig.width=1.5, fig.height=1.25}
+```{r, fig.width=1.75, fig.height=1.5}
 
 shock_only %>% 
 
@@ -199,7 +193,8 @@ shock_only %>%
                aes(group=Component.Name,width=0.2)) + 
   stat_summary(fun.data="mean_se", geom="errorbar", 
                aes(group=Component.Name,width=0.2)) +
-  theme(legend.position = "none") + scale_color_brewer(palette="Set1")
+  theme(legend.position = "none") + scale_color_brewer(palette="Set1") +
+  scale_y_continuous(expand = c(0, 0))
 
 shock_only %>%  aged() %>%
   mutate(EXPT = factor(EXPT, levels=c('YOUNG', 'AGED'))) %>%
@@ -209,7 +204,10 @@ shock_only %>%  aged() %>%
   stat_summary(fun.data = "mean_se", geom="errorbar", aes(width=0.2)) +
   theme_minimal() + 
   xlab("Post-shock periods for SAA groups") + ylab("Freezing %") +
-  theme(legend.position = "bottom") + scale_color_brewer(palette="Set1")
+  theme(legend.position = c(.8,.2),legend.title = element_blank(),
+        axis.line=element_line()) + 
+  scale_color_brewer(palette="Set1") + remove_grids() +
+  scale_y_continuous(expand = c(0, 0))
 
 ```
 
@@ -394,7 +392,7 @@ rc_avg %>%
 ```
 
 ### figure
-```{r, fig.width=1.5, fig.height=1.5}
+```{r, fig.width=1.75, fig.height=1.5}
 rc_avg %>%
   filter(CONTEXT=='AA') %>%
   aged() %>% mutate(EXPT = factor(EXPT, levels=c('YOUNG', 'AGED'))) %>%
@@ -402,10 +400,13 @@ rc_avg %>%
   stat_summary(fun.y = "mean", geom="bar") +
   # geom_point(position = position_dodge(width=1)) +
   stat_summary(fun.data="mean_se", geom="errorbar", color='black', width=0.2) +
-  theme_light() + ylab("Freezing %") + xlab("Experimental Group") +
+  theme_minimal() + ylab("Freezing %") + xlab("Experimental Group") +
   facet_wrap(~VALENCE) +
   xlab("SAA groups") +
-  scale_fill_brewer(palette="Set1") + remove_legend() + remove_grids()
+  scale_fill_brewer(palette="Set1") + remove_legend() + remove_grids() +
+  theme(axis.line=element_line(), 
+        strip.text.x=element_text(face="bold")) +
+  scale_y_continuous(expand = c(0, 0))
 
 
 ```
@@ -444,6 +445,15 @@ rc_avg %>%
 
 merge(rc_avg, animal_details, by="ID") %>% mutate(diff = FREEZE - avg.rc) %>% 
   ggplot() + aes(as.factor(ID), diff) + geom_point() + rx
+
+
+### AFTER THESIS
+
+rc.aov = rc_avg %>%
+  do(tidy(aov(data=., avg.rc ~ EXPT * VALENCE)))
+
+rc.tukey = rc_avg %>% 
+  do(tidy(TukeyHSD(aov(data=., avg.rc ~ EXPT * VALENCE))))
 
 ```
 

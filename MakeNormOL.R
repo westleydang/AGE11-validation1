@@ -1,5 +1,6 @@
 # creates the normalized OL variables
 
+#A  is GFP, B is Arc
 ol = function(OL, A, B) {
   NormOL = OL/(A + B - OL)
   NormOL
